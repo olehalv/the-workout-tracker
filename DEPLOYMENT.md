@@ -3,7 +3,7 @@
 This repo has **two independently deployable pieces**:
 
 1. **`apps/web`** — the Next.js service: marketing site + `/admin` dashboard +
-   the user/auth API. Needs a Node host and a managed Postgres.
+   the user/auth API. Deploys to **Vercel** with a managed Postgres.
 2. **`apps/mobile`** — the Expo / React Native app. Ships to the **App Store**
    via EAS, not to a server. **iOS only for now** — Google Play / Android is not
    supported (the landing page's Play button is removed); the Android bits below
@@ -55,70 +55,109 @@ marked 🔴; the rest are strongly recommended.
 
 ---
 
-## Part A — Deploy the web service (`apps/web`)
-
-### A1. Provision managed Postgres
-
-Pick a managed Postgres (Neon, Supabase, RDS, Railway, Fly Postgres, etc.).
-Capture its connection string as `DATABASE_URL`. If the provider requires TLS,
-keep the `?sslmode=require` suffix it gives you.
-
-### A2. Choose a host
+## Part A — Deploy the web service (`apps/web`) on Vercel
 
 `apps/web` is a standard Next.js (App Router) app with Node-runtime route
 handlers that use native packages (`pg`, `jsonwebtoken`, `jwks-rsa` — declared
-in `serverExternalPackages`, `next.config.ts`). Any host that runs a real Node
-server works: **Vercel** (simplest for Next), Fly.io, Railway, Render, a
-container, etc. Do **not** target a pure-static/edge-only export — the API needs
-the Node runtime and outbound network (to fetch Apple's public keys).
+in `serverExternalPackages`, `next.config.ts`) and an outbound call to Apple's
+public keys, so it must run on Vercel's **Node.js runtime** (the default for
+these routes), not a pure-static/edge export. Vercel is the target host for this
+project.
 
-Monorepo setting: it's an npm-workspaces repo. On the host, set the **root
-directory to `apps/web`** (or configure the monorepo root) and use:
+### A1. Provision managed Postgres
 
-- Install: `npm install` (from repo root — workspaces hoist).
-- Build: `npm run build:web` (or `npm run build` inside `apps/web`).
-- Start: `npm run start --workspace web` (i.e. `next start`).
+Any managed Postgres works — **Vercel Postgres / Neon** (integrates directly from
+the Vercel dashboard: Storage → Create Database), or an external Neon / Supabase /
+RDS. Capture its connection string as `DATABASE_URL`. Keep the `?sslmode=require`
+suffix the provider gives you (managed Postgres requires TLS). If you add the
+database through the Vercel integration it sets `DATABASE_URL` (and friends) into
+the project env for you — just make sure the var the app reads is named
+`DATABASE_URL`.
+
+### A2. Import the repo as a Vercel project
+
+Vercel Dashboard → **Add New… → Project** → import this Git repo.
+
+- **Root Directory:** set to **`apps/web`**. This is the key monorepo setting —
+  it tells Vercel the Next app lives in the subdirectory. Leave "Include files
+  outside the root directory" **enabled** (Vercel's default) so the workspace can
+  still hoist deps from the repo root.
+- **Framework Preset:** Next.js (auto-detected).
+- **Install Command:** leave as the default. Vercel runs `npm install` from the
+  repo root (npm workspaces hoist to root `node_modules`); with the committed
+  `package-lock.json` that resolves every workspace.
+- **Build Command:** leave as the default (`next build`). Equivalent to
+  `npm run build:web` from the root.
+- **Output:** leave default — Vercel handles the Next.js `.next` output and
+  serves the Node route handlers as functions. Do **not** set a custom "Output
+  Directory".
+- **Node.js Version:** 20 or later (matches the root `engines.node >=20`). Set it
+  under Project Settings → General if the default is older.
+
+> **Native binaries / the lightningcss + Tailwind oxide build error.** Turbopack's
+> CSS pipeline uses `lightningcss` and Tailwind v4 uses `@tailwindcss/oxide`,
+> both of which ship platform-specific native binaries as *optional*
+> dependencies. npm only writes the **current machine's** optional binary into
+> `package-lock.json`, so a lockfile generated on macOS is missing the Linux x64
+> binaries — and Vercel's linux-x64 build then dies with
+> `Cannot find module '../lightningcss.linux-x64-gnu.node'` (oxide fails the same
+> way). This repo fixes that by pinning the Linux x64 binaries in the **root
+> `package.json` `optionalDependencies`** (`lightningcss-linux-x64-gnu`,
+> `@tailwindcss/oxide-linux-x64-gnu`), which forces their resolutions into the
+> lockfile for all platforms. **If you bump `tailwindcss` or `lightningcss`, bump
+> these pins to match** (check the new transitive versions and re-run
+> `npm install`), or the Vercel build regresses to the same error.
 
 ### A3. Set production environment variables
 
-From `apps/web/.env.example`. Set these in the host's env (not committed):
+Project Settings → **Environment Variables** (scope to Production; add Preview too
+if you want preview deploys to work). From `apps/web/.env.example`:
 
 | Var | Required | Prod value |
 | --- | --- | --- |
-| `DATABASE_URL` | ✅ | Your managed Postgres URL (from A1). |
+| `DATABASE_URL` | ✅ | Your managed Postgres URL (from A1), incl. `?sslmode=require`. Set automatically if you used the Vercel Postgres integration. |
 | `APPLE_CLIENT_IDS` | ✅ | `dev.olehalv.theworkouttracker` (the iOS bundle id = Apple token audience). Comma-separate if you add more. **Do not** include `host.exp.Exponent` in prod — it's only auto-added in dev. |
 | `SESSION_JWT_SECRET` | ✅ | Long random secret (see blockers). Also keys the admin cookie. |
 | `ADMIN_PASSWORD` | ✅ | Password for the `/admin` login. Empty = dashboard denied to everyone. |
 | `SESSION_JWT_EXPIRES_IN` | ⬜ | Defaults to `30d`. |
-| `SESSION_JWT_ISSUER` | ⬜ | Defaults to `my-workout-tracker-auth`. |
-| `NODE_ENV` | ✅ | `production` (most hosts set this automatically; it's what flips the strict secret/audience checks on). |
+| `SESSION_JWT_ISSUER` | ⬜ | Defaults to `the-workout-tracker-auth`. |
 
 Nothing here is `NEXT_PUBLIC_`, so none of it reaches the browser — keep it that
-way.
+way. Don't set `NODE_ENV`; Vercel sets it to `production` for production builds
+automatically, which is what flips on the strict secret/audience checks. After
+changing env vars, redeploy (Vercel doesn't hot-reload env into an existing
+deployment).
 
 ### A4. Run database migrations
 
 Migrations are committed SQL under `apps/web/drizzle/` (`0000_init.sql`), applied
 by `apps/web/src/server/db/migrate.ts` (reads `DATABASE_URL` via dotenv).
 
-Run **once against the prod DB before/at first deploy**, and again whenever you
-add a migration:
+**Don't run migrations in the Vercel build.** The build runs on every deploy and
+should stay side-effect-free (a schema change would race concurrent builds and
+can't roll back). Instead run the migration **manually against the prod DB from
+your machine** — once before the first deploy, and again whenever you add a
+migration:
 
 ```bash
-# with the prod DATABASE_URL in the environment:
-npm run db:migrate            # = tsx apps/web/src/server/db/migrate.ts
+# from the repo root, with the prod DATABASE_URL exported (not your local one):
+DATABASE_URL='postgresql://…prod…?sslmode=require' npm run db:migrate
 ```
 
-Options: run it locally pointed at the prod DB, as a release/deploy hook, or a
-one-off job on the host. Schema changes flow: edit
+(`npm run db:migrate` = `tsx apps/web/src/server/db/migrate.ts`.) If you'd rather
+not export it inline, pull the value with `vercel env pull apps/web/.env.production`
+and point the command at that file. Schema-change flow stays: edit
 `src/server/db/schema.ts` → `npm run db:generate` → commit the new SQL →
-`npm run db:migrate`.
+`npm run db:migrate` against prod.
 
 ### A5. Deploy, domain, verify
 
-1. Deploy via the host (push-to-deploy or CI).
-2. Point your domain at it (e.g. `theworkouttracker.app`), TLS on.
-3. Smoke test:
+1. **Deploy:** push to the production branch (Vercel auto-deploys), or click
+   **Deploy** in the dashboard / run `vercel --prod`.
+2. **Domain:** Project Settings → Domains → add your domain (e.g.
+   `theworkouttracker.app`) and follow the DNS instructions. Vercel provisions
+   TLS automatically.
+3. **Smoke test:**
    - `GET https://<domain>/api/health` → liveness OK.
    - Landing page renders; Privacy/Terms load with the real contact email;
      the only store button is **App Store** (Android is not offered).

@@ -29,6 +29,11 @@
       "react-native": "0.81.5"
     }
   },
+  "_comment_optionalDependencies": "Force the Linux x64 native binaries for Tailwind v4 (oxide) and Turbopack's CSS (lightningcss) into package-lock.json. npm only records the current-platform optional binary when you install on macOS, so Vercel (linux-x64) can't find them and the build fails with 'Cannot find module ../lightningcss.linux-x64-gnu.node'. Keep these versions in sync with the transitive lightningcss / @tailwindcss/oxide versions.",
+  "optionalDependencies": {
+    "lightningcss-linux-x64-gnu": "1.32.0",
+    "@tailwindcss/oxide-linux-x64-gnu": "4.3.3"
+  },
   "engines": {
     "node": ">=20"
   }
