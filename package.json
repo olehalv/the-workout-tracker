@@ -1,0 +1,35 @@
+{
+  "name": "my-workout-tracker",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Monorepo for a workout tracking app (progressive overload) — a fullstack Next.js web app (marketing + admin + Apple-login user/auth API) and an Expo mobile app.",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -k -n web,mobile -c blue,magenta \"npm:dev:web\" \"npm:dev:mobile\"",
+    "dev:web": "npm run dev --workspace web",
+    "dev:mobile": "npm run start --workspace mobile",
+    "build:web": "npm run build --workspace web",
+    "db:generate": "npm run db:generate --workspace web",
+    "db:migrate": "npm run db:migrate --workspace web",
+    "format": "biome format --write .",
+    "lint": "biome lint .",
+    "check": "biome check .",
+    "check:fix": "biome check --write .",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.4",
+    "concurrently": "^10.0.3"
+  },
+  "overrides": {
+    "react-native-is-edge-to-edge": {
+      "react": "19.1.0",
+      "react-native": "0.81.5"
+    }
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
