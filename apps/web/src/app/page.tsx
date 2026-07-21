@@ -21,16 +21,8 @@ export default function Home() {
         </p>
 
         <div className="flex flex-col gap-3 sm:flex-row">
-          <StoreButton
-            href="#"
-            eyebrow="Download on the"
-            store="App Store"
-            glyph={<AppleGlyph />}
-          />
+          <StoreButton eyebrow="Download on the" store="App Store" glyph={<AppleGlyph />} disabled />
         </div>
-        <p className="text-xs text-zinc-600">
-          Coming soon to the App Store — link is a placeholder. iOS only for now.
-        </p>
 
         <section className="w-full pt-6">
           <h2 className="text-sm font-medium uppercase tracking-widest text-zinc-500">Pricing</h2>
@@ -132,12 +124,31 @@ function StoreButton({
   eyebrow,
   store,
   glyph,
+  disabled,
 }: {
-  href: string;
+  href?: string;
   eyebrow: string;
   store: string;
   glyph: React.ReactNode;
+  disabled?: boolean;
 }) {
+  if (disabled) {
+    return (
+      <div
+        aria-disabled="true"
+        className="flex cursor-not-allowed items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-5 py-3 text-left opacity-60"
+      >
+        <span className="text-white">{glyph}</span>
+        <span className="flex flex-col leading-tight">
+          <span className="text-[10px] uppercase tracking-wide text-zinc-400">{eyebrow}</span>
+          <span className="text-lg font-semibold">{store}</span>
+        </span>
+        <span className="ml-2 rounded-full border border-white/15 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-zinc-400">
+          Coming soon
+        </span>
+      </div>
+    );
+  }
   return (
     <a
       href={href}
