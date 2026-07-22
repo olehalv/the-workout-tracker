@@ -22,9 +22,9 @@ visualize strength progress over time.
   in Postgres and returns a session JWT plus the user (id, email, plan).
 - **Monetization:** a "Pro" paywall in the app gates the analytics features
   (progress charts, full exercise history, muscle-activity map, strength ratings)
-  behind a subscription — **$1/month or $10/year** (annual is the default offer;
-  the ~$0.30 fixed processing fee is ~33% of a $1 charge but only ~3% of a $10
-  one), preceded by a **14-day free trial that needs no card**.
+  behind a subscription — **$1/month or $10/year** (annual is the default offer —
+  the fixed ~$0.30 processing fee eats a third of a $1 charge), preceded by a
+  **14-day free trial that needs no card**.
 - **Payments run through Stripe, deliberately outside the App Store / Play
   Store.** The paywall opens **Stripe Checkout in an in-app browser**
   (`expo-web-browser`); the `web` app hosts the API + return pages, and Stripe's
@@ -42,10 +42,9 @@ visualize strength progress over time.
     `POST /api/billing/trial` returns the original end date rather than a fresh
     window.
   - **App Store review risk:** linking out to external payment for digital goods
-    is governed by Apple guideline 3.1.1. The US storefront allows it post-*Epic*;
-    other storefronts may require Apple's External Purchase Link entitlement (and
-    commission) or disallow it. **Verify current Apple policy before submitting** —
-    this area moves fast.
+    is governed by Apple guideline 3.1.1, and the rules differ per storefront.
+    **Verify current Apple policy before submitting** — this area moves fast, so
+    don't answer it from memory.
 
 ## Repository layout
 
@@ -68,9 +67,10 @@ API. It was previously split into `apps/website` + a separate Express
 `user-service`; those are now one Next.js app (Express dropped — Next route
 handlers serve the API, and the admin UI talks to Postgres directly instead of
 over HTTP).
-- Purpose (marketing): a very small landing site. Pitch + App Store / Google Play
-  download buttons (`src/app/page.tsx`; store links are **placeholders** — `#` —
-  until the app ships) and static **Privacy** (`src/app/privacy`) and **Terms**
+- Purpose (marketing): a very small landing site. Pitch + an App Store download
+  button (`src/app/page.tsx`; the link is a **placeholder** — `#` — until the app
+  ships; there is no Play button, Android is unsupported) and static **Privacy**
+  (`src/app/privacy`) and **Terms**
   (`src/app/terms`) pages linked from the footer. Little information, no app
   functionality.
 - Stack: Next.js (App Router), TypeScript, Tailwind CSS, `src/` dir, `@/*` alias,
@@ -128,16 +128,13 @@ over HTTP).
   against Apple's public keys (issuer + audience), **upsert** the user
   (`users.apple_user_id` = Apple `sub`; email only arrives on first authorization,
   so it's coalesced), then issue our session JWT (its `sub` is our DB user id).
-- Config via env (see `apps/web/.env.example`): `DATABASE_URL`, `APPLE_CLIENT_IDS`
-  (audiences = bundle id), `SESSION_JWT_SECRET`, `SESSION_JWT_EXPIRES_IN`,
-  `SESSION_JWT_ISSUER`, `ADMIN_PASSWORD` (gates `/admin`; empty = access denied),
-  plus billing: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`,
-  `STRIPE_PRICE_MONTHLY`, `STRIPE_PRICE_ANNUAL`, `PUBLIC_BASE_URL` (origin used
-  for Stripe return URLs — must be reachable from the *phone's* browser, so a LAN
-  IP in dev), `APP_SCHEME`, `TRIAL_DAYS`.
-  Dev falls back to an insecure `SESSION_JWT_SECRET` (warns) and auto-accepts Expo
-  Go's audience; `DATABASE_URL` is always required. Both Next.js and the Drizzle
-  tooling read `apps/web/.env`.
+- **Config via env — `apps/web/.env.example` is the reference**, not this file;
+  every var is documented there. Read `src/server/config.ts` for the semantics.
+  Worth knowing: `DATABASE_URL` is always required; dev falls back to an insecure
+  `SESSION_JWT_SECRET` (warns) and auto-accepts Expo Go's audience, while prod
+  throws on boot without a real one. `PUBLIC_BASE_URL` must be reachable from the
+  *phone's* browser, so a LAN IP in dev. Both Next.js and the Drizzle tooling read
+  `apps/web/.env`.
 
 ### apps/mobile — Expo / React Native
 - Purpose: the real product. All workout tracking features live here.
@@ -340,73 +337,41 @@ it. Two ways to exercise the full flow:
   so the app accepts Expo Go tokens. Dev only — never ship this.
 - **Real bundle id:** a development build with the real audience (steps below).
 
-To run the real login flow against your own bundle id:
+Setup (Postgres, `.env`, migrate, `npm run dev`) is in `README.md`. To run
+against the **real** bundle id rather than Expo Go's, you need a dev build:
 
-1. **Set up Postgres** (Homebrew, no Docker):
-   ```bash
-   brew install postgresql@17 && brew services start postgresql@17
-   createdb workout_tracker          # name matches DATABASE_URL in .env.example
-   ```
+```bash
+cd apps/mobile
+npx expo prebuild --clean          # generates ios/ with the Apple Sign In entitlement
+npx expo run:ios --device          # build + install on the connected iPhone
+```
 
-2. **Create the web env file** (reads `.env`, not `.env.example`) and migrate:
-   ```bash
-   cd apps/web
-   cp .env.example .env
-   # .env has DATABASE_URL=postgresql://localhost:5432/workout_tracker,
-   # APPLE_CLIENT_IDS=dev.olehalv.theworkouttracker, and a dev-only fallback for
-   # SESSION_JWT_SECRET (set a real value for anything shared).
-   npm run db:migrate                # create the users table
-   ```
-
-3. **Start the web app** (site + admin + API on http://localhost:3000):
-   ```bash
-   npm run dev:web      # or `npm run dev` for web + mobile
-   ```
-   On a physical device, `localhost` points at the phone. Set
-   `EXPO_PUBLIC_USER_API_URL` in `apps/mobile/.env` to your machine's LAN IP
-   (e.g. `http://192.168.1.20:3000`). The admin dashboard (`/admin`) needs no
-   extra env — it reads Postgres directly using the same `DATABASE_URL`.
-
-4. **Build & run the app natively** (only needed to test with the real bundle
-   id / full entitlement — Apple sign-in itself already works in Expo Go):
-   ```bash
-   cd apps/mobile
-   npx expo prebuild --clean          # generates ios/ with the Apple Sign In entitlement
-   npx expo run:ios --device          # build + install on the connected iPhone
-   ```
-   - Requires Xcode. For a **physical device**, `dev.olehalv.theworkouttracker` must
-     exist as an App ID with the **Sign in with Apple** capability in the Apple
-     Developer account — Xcode prompts to register it on first run.
-   - Simulator: `npx expo run:ios` (no `--device`).
-   - EAS alternative: `eas build --profile development --platform ios`.
-
-`isAvailableAsync()` returns true and the button renders in Expo Go already; the
-dev build's added value is that the token's `aud` matches `APPLE_CLIENT_IDS`, so
-the `web` app accepts it.
+Requires Xcode, and `dev.olehalv.theworkouttracker` must exist as an App ID with
+the **Sign in with Apple** capability (Xcode prompts to register it). Drop
+`--device` for the simulator; `eas build --profile development --platform ios` is
+the EAS equivalent. The dev build's only added value is that the token's `aud`
+matches `APPLE_CLIENT_IDS` — the button itself already renders in Expo Go.
 
 ### Testing payments locally
 
 Unlike StoreKit, the whole payment flow works in **Expo Go** — it's just a web
 checkout in an in-app browser. With `STRIPE_SECRET_KEY` unset the billing routes
 return 503 and the app shows "Subscriptions aren't available yet", which is fine
-for working on anything else. To exercise the real flow in Stripe **test mode**:
+for working on anything else.
 
-1. Create two recurring prices (e.g. $1/month, $10/year) in the Stripe dashboard
-   and put their ids in `STRIPE_PRICE_MONTHLY` / `STRIPE_PRICE_ANNUAL`, plus the
-   `sk_test_…` key in `STRIPE_SECRET_KEY` (all in `apps/web/.env`).
-2. Forward webhooks to the dev server and copy the printed `whsec_…` into
-   `STRIPE_WEBHOOK_SECRET`:
-   ```bash
-   stripe listen --forward-to localhost:3000/api/stripe/webhook
-   ```
-   Without this, checkout completes but **Pro is never granted** — the webhook is
-   the only thing that flips the plan.
-3. Set `PUBLIC_BASE_URL` to a URL the *phone's* browser can reach (your LAN IP,
-   e.g. `http://192.168.1.20:3000`), not `localhost` — that resolves to the phone.
-4. Pay with Stripe's test card `4242 4242 4242 4242`, any future expiry/CVC.
+To exercise the real flow, use Stripe **test mode** keys/prices in
+`apps/web/.env` and forward webhooks to the dev server:
+
+```bash
+stripe listen --forward-to localhost:3000/api/stripe/webhook   # prints STRIPE_WEBHOOK_SECRET
+```
+
+Without that forwarder, checkout completes but **Pro is never granted** — the
+webhook is the only thing that flips the plan. `PUBLIC_BASE_URL` must be your LAN
+IP, not `localhost` (which resolves to the phone). Pay with `4242 4242 4242 4242`.
 
 To re-test the paywall from scratch, clear the trial and subscription on your
-user (the app's entitlement is entirely server-side, so this fully resets it):
+user (entitlement is entirely server-side, so this fully resets it):
 
 ```bash
 psql -d the_workout_tracker -c "update users set plan='free', paid_until=null, \
@@ -457,21 +422,28 @@ Next steps:
   in-memory scans, migrate the store behind `src/storage/storage.ts` to
   `expo-sqlite`.
 - Payments: the Stripe flow is wired end-to-end (paywall → in-app browser →
-  Checkout → webhook → entitlement). Remaining: create the real products/prices
-  in a live-mode Stripe account, set the env vars, register the production
-  webhook endpoint, and decide the tax story — as merchant of record **you** are
-  liable for EU/UK VAT on digital goods (Stripe Tax automates calculation for
-  +0.5% but you still register and remit). Also confirm Apple guideline 3.1.1
-  external-payment rules for the storefronts you ship to.
+  Checkout → webhook → entitlement) but has only run in **test mode**. Going live
+  is account configuration, not code: live-mode product + prices, a **saved**
+  customer-portal config (the portal route 500s until it's saved once), a
+  registered webhook endpoint, and the matching env vars. Nothing carries over
+  from test mode — and test-mode `stripe_customer_id`s in a live database break
+  checkout with "No such customer", so clear them if you ever reuse a dev DB.
 - Web: swap the **placeholder** App Store link on the landing page for the real
-  URL once the app ships (Google Play is not offered — Android unsupported for
-  now, so the Play button was removed). Contact email in Privacy/Terms is set to
-  `ole2005morten@outlook.com`. `/admin` now has a password login
-  (`ADMIN_PASSWORD`); a possible further step is per-user admin accounts or
-  host-level protection, but the password gate is in place.
-- Web (backend): wire actual payments (set `plan`/`paidUntil` from a billing
-  provider/webhook); choose a hosting target + managed Postgres; rotate
-  `SESSION_JWT_SECRET` for prod.
+  URL once the app ships (Android unsupported for now — no Play button). Contact
+  email in Privacy/Terms is `ole2005morten@outlook.com`. `/admin` has a password
+  login (`ADMIN_PASSWORD`); per-user admin accounts or host-level protection
+  would be the next step up.
+- Deploy: `apps/web` targets **Vercel** with Root Directory `apps/web` and a
+  managed Postgres. Two things that bite:
+  - **Don't run migrations in the build** — it runs on every deploy, races
+    concurrent builds, and can't roll back. Run `npm run db:migrate` manually
+    with the prod `DATABASE_URL` exported.
+  - `lightningcss` and `@tailwindcss/oxide` ship platform-specific native
+    binaries as *optional* deps, and npm only locks the current machine's — so a
+    macOS lockfile breaks Vercel's linux-x64 build. The root `package.json`
+    pins `lightningcss-linux-x64-gnu` + `@tailwindcss/oxide-linux-x64-gnu` in
+    `optionalDependencies` to force them into the lockfile. **Bump these pins
+    whenever you bump `tailwindcss` or `lightningcss`.**
 - Apple sign-in works in Expo Go, but the token's `aud` is Expo Go's bundle id,
   so testing against the real `APPLE_CLIENT_IDS` needs a dev build (or adding
   Expo Go's client id to the allowed audiences). Only the web/browser sandbox
