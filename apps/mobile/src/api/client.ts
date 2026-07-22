@@ -4,6 +4,23 @@
 const USER_API_URL = process.env.EXPO_PUBLIC_USER_API_URL ?? "http://localhost:3000";
 
 /**
+ * React Native's fetch has no default timeout, so a wrong or unreachable
+ * API URL leaves the caller's spinner up indefinitely rather than surfacing
+ * an error. Every request below goes through this instead.
+ */
+const REQUEST_TIMEOUT_MS = 15_000;
+
+async function fetchWithTimeout(path: string, init?: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    return await fetch(`${USER_API_URL}${path}`, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
  * Why the user does (or doesn't) have Pro. Computed by the server — the app
  * never decides this itself, so a wound-forward device clock can't extend a
  * trial. Mirrors `apps/web/src/server/billing/entitlement.ts`.
@@ -64,7 +81,7 @@ export interface AuthResponse {
 export async function fetchMe(token: string): Promise<AuthUser | null> {
   let res: Response;
   try {
-    res = await fetch(`${USER_API_URL}/api/auth/me`, {
+    res = await fetchWithTimeout("/api/auth/me", {
       headers: { Authorization: `Bearer ${token}` },
     });
   } catch {
@@ -98,7 +115,7 @@ export class BillingError extends Error {
 async function postAuthed<T>(path: string, token: string, body?: unknown): Promise<T> {
   let res: Response;
   try {
-    res = await fetch(`${USER_API_URL}${path}`, {
+    res = await fetchWithTimeout(path, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -166,7 +183,7 @@ export async function createPortalUrl(token: string): Promise<string> {
 export async function verifyAppleLogin(identityToken: string): Promise<AuthResponse> {
   let res: Response;
   try {
-    res = await fetch(`${USER_API_URL}/api/auth/apple`, {
+    res = await fetchWithTimeout("/api/auth/apple", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ identityToken }),

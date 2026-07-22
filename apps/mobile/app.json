@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "The Workout Tracker",
-    "slug": "workout-tracker",
+    "slug": "the-workout-tracker",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -10,7 +10,10 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "dev.olehalv.theworkouttracker",
-      "usesAppleSignIn": true
+      "usesAppleSignIn": true,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "dev.olehalv.theworkouttracker",
@@ -25,6 +28,12 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "plugins": ["expo-apple-authentication", "expo-secure-store", "expo-web-browser"]
+    "plugins": ["expo-apple-authentication", "expo-secure-store", "expo-web-browser"],
+    "extra": {
+      "eas": {
+        "projectId": "acbc3441-709f-465f-8b3b-a627662c1739"
+      }
+    },
+    "owner": "olehalv"
   }
 }

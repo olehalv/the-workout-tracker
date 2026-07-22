@@ -8,6 +8,7 @@
     "expo": "~54.0.36",
     "expo-apple-authentication": "~8.0.8",
     "expo-blur": "~15.0.8",
+    "expo-dev-client": "~6.0.21",
     "expo-glass-effect": "~0.1.10",
     "expo-linking": "~8.0.12",
     "expo-secure-store": "~15.0.8",
