@@ -9,7 +9,7 @@ import {
   useState,
 } from "react";
 import { AppState } from "react-native";
-import { type AuthUser, fetchMe, verifyAppleLogin } from "../api/client";
+import { type AuthUser, fetchMe, normalizeUser, verifyAppleLogin } from "../api/client";
 import { AppleSignInCanceledError, requestAppleIdentityToken } from "./appleSignIn";
 
 const TOKEN_KEY = "session_token";
@@ -22,6 +22,12 @@ interface AuthContextValue {
   isSigningIn: boolean;
   signInWithApple: () => Promise<void>;
   signOut: () => Promise<void>;
+  /**
+   * Re-fetch the user (and with it the Pro entitlement) on demand. Returns the
+   * fresh user, or null when there's no session. The billing flow polls this
+   * after checkout to notice the webhook landing.
+   */
+  refresh: () => Promise<AuthUser | null>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -47,21 +53,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * network error we keep the cached user (offline).
    */
   const refreshUser = useCallback(
-    async (activeToken: string) => {
+    async (activeToken: string): Promise<AuthUser | null> => {
       try {
         const fresh = await fetchMe(activeToken);
         if (fresh === null) {
           await signOut();
-          return;
+          return null;
         }
         setUser(fresh);
         await SecureStore.setItemAsync(USER_KEY, JSON.stringify(fresh));
+        return fresh;
       } catch {
         // Service unreachable — keep the cached user until next refresh.
+        return null;
       }
     },
     [signOut],
   );
+
+  const refresh = useCallback(async () => {
+    if (!token) return null;
+    return refreshUser(token);
+  }, [token, refreshUser]);
 
   useEffect(() => {
     let active = true;
@@ -73,7 +86,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         ]);
         if (active && storedToken && storedUser) {
           setToken(storedToken);
-          setUser(JSON.parse(storedUser) as AuthUser);
+          // normalizeUser: a user cached before entitlement existed has no such
+          // field, and the Pro gates read it synchronously on first render.
+          setUser(normalizeUser(JSON.parse(storedUser) as AuthUser));
           // Pick up any server-side plan change since the app was last open.
           refreshUser(storedToken);
         }
@@ -120,8 +135,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo<AuthContextValue>(
-    () => ({ user, token, isRestoring, isSigningIn, signInWithApple, signOut }),
-    [user, token, isRestoring, isSigningIn, signInWithApple, signOut],
+    () => ({ user, token, isRestoring, isSigningIn, signInWithApple, signOut, refresh }),
+    [user, token, isRestoring, isSigningIn, signInWithApple, signOut, refresh],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

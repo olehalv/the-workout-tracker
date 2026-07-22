@@ -10,7 +10,8 @@ import {
   View,
 } from "react-native";
 import { theme } from "../theme";
-import { PRO_PRICE_LABEL, PRO_TRIAL_DAYS } from "./iap";
+import { usePurchases } from "./PurchaseContext";
+import { DEFAULT_PLAN, PLAN_OPTIONS, PRO_TRIAL_DAYS, type ProPlan } from "./plans";
 
 const PERKS = [
   "Full top-set progression charts",
@@ -20,29 +21,31 @@ const PERKS = [
 ];
 
 /**
- * The subscribe sheet — a dark bottom sheet modeled on Apple's StoreKit purchase
- * confirmation. Tapping "Start free trial" runs the (simulated in Expo Go) native
- * purchase via `onSubscribe`, then unlocks Pro across the app.
+ * The subscribe sheet — a dark bottom sheet.
+ *
+ * Two states, driven by whether the account still has its free trial:
+ *  - eligible → the headline offer is the no-card trial (one tap, no browser),
+ *    with "subscribe now" tucked underneath for anyone who'd rather just pay.
+ *  - used up → the plan picker, which sends them to Stripe Checkout in an
+ *    in-app browser. Payment does not go through the App Store.
  */
-export function PaywallSheet({
-  visible,
-  onClose,
-  onSubscribe,
-}: {
-  visible: boolean;
-  onClose: () => void;
-  onSubscribe: () => Promise<boolean>;
-}) {
-  const [busy, setBusy] = useState(false);
+export function PaywallSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  const { entitlement, startFreeTrial, subscribe, busy } = usePurchases();
+  const [plan, setPlan] = useState<ProPlan>(DEFAULT_PLAN);
+  // Lets a trial-eligible user skip straight to paying.
+  const [showPlans, setShowPlans] = useState(false);
   // Keep the modal mounted through the exit animation so it can slide back down.
   const [mounted, setMounted] = useState(visible);
   const anim = useRef(new Animated.Value(0)).current;
+
+  const offerTrial = entitlement.trialEligible && !showPlans;
 
   // Drive the entrance/exit: backdrop fades in place, sheet slides up — so the
   // scrim no longer travels with the sheet (Modal's own "slide" moved both).
   useEffect(() => {
     if (visible) {
-      setBusy(false);
+      setShowPlans(false);
+      setPlan(DEFAULT_PLAN);
       setMounted(true);
       Animated.timing(anim, {
         toValue: 1,
@@ -60,14 +63,12 @@ export function PaywallSheet({
     }
   }, [visible, anim]);
 
-  const handleSubscribe = async () => {
-    setBusy(true);
-    const ok = await onSubscribe();
-    setBusy(false);
+  const handlePrimary = async () => {
+    const ok = offerTrial ? await startFreeTrial() : await subscribe(plan);
     if (ok) onClose();
   };
 
-  const translateY = anim.interpolate({ inputRange: [0, 1], outputRange: [520, 0] });
+  const translateY = anim.interpolate({ inputRange: [0, 1], outputRange: [560, 0] });
 
   return (
     <Modal visible={mounted} animationType="none" transparent onRequestClose={onClose}>
@@ -83,7 +84,9 @@ export function PaywallSheet({
           </View>
           <Text style={styles.title}>The Workout Tracker Pro</Text>
           <Text style={styles.subtitle}>
-            {PRO_TRIAL_DAYS} days free, then {PRO_PRICE_LABEL}
+            {offerTrial
+              ? `${PRO_TRIAL_DAYS} days free — no card required`
+              : "Keep every chart, stat and record"}
           </Text>
 
           <View style={styles.perks}>
@@ -95,23 +98,64 @@ export function PaywallSheet({
             ))}
           </View>
 
+          {!offerTrial ? (
+            <View style={styles.plans}>
+              {PLAN_OPTIONS.map((option) => {
+                const selected = option.id === plan;
+                return (
+                  <Pressable
+                    key={option.id}
+                    style={[styles.plan, selected && styles.planSelected]}
+                    onPress={busy ? undefined : () => setPlan(option.id)}
+                  >
+                    <View style={styles.planRadio}>
+                      {selected ? <View style={styles.planRadioDot} /> : null}
+                    </View>
+                    <View style={styles.planText}>
+                      <Text style={styles.planTitle}>{option.title}</Text>
+                      {option.caption ? (
+                        <Text style={styles.planCaption}>{option.caption}</Text>
+                      ) : null}
+                    </View>
+                    <View style={styles.planRight}>
+                      <Text style={styles.planPrice}>{option.price}</Text>
+                      {option.badge ? (
+                        <View style={styles.planBadge}>
+                          <Text style={styles.planBadgeText}>{option.badge}</Text>
+                        </View>
+                      ) : null}
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
+          ) : null}
+
           <Pressable
             style={({ pressed }) => [styles.cta, (pressed || busy) && styles.ctaPressed]}
-            onPress={handleSubscribe}
+            onPress={handlePrimary}
             disabled={busy}
           >
             {busy ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
-              <Text style={styles.ctaText}>Start {PRO_TRIAL_DAYS}-day free trial</Text>
+              <Text style={styles.ctaText}>
+                {offerTrial ? `Start ${PRO_TRIAL_DAYS}-day free trial` : "Continue to payment"}
+              </Text>
             )}
           </Pressable>
 
           <Text style={styles.fineprint}>
-            Free for {PRO_TRIAL_DAYS} days, then {PRO_PRICE_LABEL}. The trial is non-binding —
-            cancel anytime in Settings › Apple Account › Subscriptions and you won't be charged. The
-            subscription auto-renews monthly until canceled.
+            {offerTrial
+              ? `No payment details needed. After ${PRO_TRIAL_DAYS} days, subscribe from $0.83/month to keep Pro — otherwise it simply reverts to free.`
+              : "Secure payment handled by Stripe in your browser. Cancel anytime from the Me tab; subscriptions renew until canceled."}
           </Text>
+
+          {offerTrial ? (
+            <Pressable onPress={busy ? undefined : () => setShowPlans(true)} hitSlop={8}>
+              <Text style={styles.secondaryText}>Subscribe now instead</Text>
+            </Pressable>
+          ) : null}
 
           <Pressable onPress={busy ? undefined : onClose} hitSlop={8} style={styles.notNow}>
             <Text style={styles.notNowText}>Not now</Text>
@@ -189,6 +233,74 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     flex: 1,
   },
+  plans: {
+    alignSelf: "stretch",
+    gap: theme.space(3),
+    marginBottom: theme.space(5),
+  },
+  plan: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.space(3),
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.md,
+    paddingVertical: theme.space(3),
+    paddingHorizontal: theme.space(4),
+  },
+  planSelected: {
+    borderColor: theme.colors.accent,
+    backgroundColor: "rgba(255,255,255,0.04)",
+  },
+  planRadio: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: theme.colors.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  planRadioDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: theme.colors.accent,
+  },
+  planText: {
+    flex: 1,
+  },
+  planTitle: {
+    color: theme.colors.text,
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  planCaption: {
+    color: theme.colors.textMuted,
+    fontSize: 12,
+    fontWeight: "500",
+    marginTop: 2,
+  },
+  planRight: {
+    alignItems: "flex-end",
+    gap: 4,
+  },
+  planPrice: {
+    color: theme.colors.text,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  planBadge: {
+    backgroundColor: theme.colors.accent,
+    borderRadius: theme.radius.sm,
+    paddingHorizontal: theme.space(2),
+    paddingVertical: 2,
+  },
+  planBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 10,
+    fontWeight: "800",
+  },
   cta: {
     alignSelf: "stretch",
     backgroundColor: theme.colors.accent,
@@ -212,6 +324,13 @@ const styles = StyleSheet.create({
     lineHeight: 17,
     textAlign: "center",
     marginTop: theme.space(4),
+  },
+  secondaryText: {
+    color: theme.colors.text,
+    fontSize: 14,
+    fontWeight: "600",
+    marginTop: theme.space(4),
+    textDecorationLine: "underline",
   },
   notNow: {
     marginTop: theme.space(5),

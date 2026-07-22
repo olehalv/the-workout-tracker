@@ -4,6 +4,7 @@ import { type ReactNode, useState } from "react";
 import { Pressable, type StyleProp, StyleSheet, Text, View, type ViewStyle } from "react-native";
 import { PaywallSheet } from "../purchases/PaywallSheet";
 import { usePurchases } from "../purchases/PurchaseContext";
+import { PRO_PRICE_LABEL, PRO_TRIAL_DAYS } from "../purchases/plans";
 import { theme } from "../theme";
 
 /**
@@ -29,7 +30,7 @@ export function ProGate({
   /** Smaller lock chip (for tight rows) instead of the full lock + subtitle. */
   compact?: boolean;
 }) {
-  const { subscribe } = usePurchases();
+  const { entitlement } = usePurchases();
   const [paywallOpen, setPaywallOpen] = useState(false);
 
   // Unlocked: render children in the same container box, fully interactive, so
@@ -51,15 +52,19 @@ export function ProGate({
           style={({ pressed }) => [styles.cta, pressed && styles.ctaPressed]}
           onPress={() => setPaywallOpen(true)}
         >
-          <Text style={styles.ctaText}>Requires Pro · $1/month</Text>
+          <Text style={styles.ctaText}>
+            {entitlement.trialEligible ? "Try Pro free" : `Requires Pro · ${PRO_PRICE_LABEL}`}
+          </Text>
         </Pressable>
-        {!compact ? <Text style={styles.hint}>14 days free — cancel anytime</Text> : null}
+        {!compact ? (
+          <Text style={styles.hint}>
+            {entitlement.trialEligible
+              ? `${PRO_TRIAL_DAYS} days free — no card required`
+              : "Cancel anytime"}
+          </Text>
+        ) : null}
       </View>
-      <PaywallSheet
-        visible={paywallOpen}
-        onClose={() => setPaywallOpen(false)}
-        onSubscribe={subscribe}
-      />
+      <PaywallSheet visible={paywallOpen} onClose={() => setPaywallOpen(false)} />
     </View>
   );
 }

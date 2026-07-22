@@ -5,6 +5,7 @@ import { BodyMap, heatRamp } from "../components/BodyMap";
 import { ProGate } from "../components/ProGate";
 import { tabScrollClearance } from "../navigation/tabBar";
 import { usePurchases } from "../purchases/PurchaseContext";
+import { PRO_TRIAL_DAYS } from "../purchases/plans";
 import { theme } from "../theme";
 import { muscleActivity, startOfThisWeek } from "../workouts/muscleStats";
 import { type Sex, strengthProfile } from "../workouts/strengthStandards";
@@ -29,7 +30,8 @@ export function ProfileScreen() {
   const { user, signOut } = useAuth();
   const { workouts, library, unit, setUnit, bodyweight, setBodyweight, sex, setSex } =
     useWorkouts();
-  const { isPro, subscription, trialDaysLeft, openPaywall, manageSubscription } = usePurchases();
+  const { isPro, entitlement, trialDaysLeft, busy, openPaywall, manageSubscription } =
+    usePurchases();
   const [muscleWindow, setMuscleWindow] = useState<WindowKey>("week");
 
   const activity = useMemo(
@@ -212,19 +214,33 @@ export function ProfileScreen() {
         <View style={styles.proCard}>
           <View style={styles.proHeader}>
             <Text style={styles.proTitle}>Pro unlocked</Text>
-            {subscription.status === "trial" ? (
+            {entitlement.source === "trial" ? (
               <Text style={styles.proTrial}>
                 {trialDaysLeft} day{trialDaysLeft === 1 ? "" : "s"} of free trial left
               </Text>
             ) : null}
           </View>
           <Text style={styles.proBody}>
-            Progression charts, full history, the muscle map and strength ratings are all yours.
+            {entitlement.source === "trial"
+              ? "You're on the free trial — no payment details needed. Subscribe before it ends to keep everything."
+              : entitlement.cancelAtPeriodEnd
+                ? "Your subscription is set to end at the close of the current period."
+                : "Progression charts, full history, the muscle map and strength ratings are all yours."}
           </Text>
-          {subscription.status !== "none" ? (
+          {/* On the free trial there's no Stripe customer yet, so offer the
+              upgrade instead of a billing portal that has nothing in it. */}
+          {entitlement.source === "trial" ? (
+            <Pressable
+              style={({ pressed }) => [styles.manageBtn, pressed && styles.pressed]}
+              onPress={openPaywall}
+            >
+              <Text style={styles.manageText}>Subscribe</Text>
+            </Pressable>
+          ) : entitlement.canManageBilling ? (
             <Pressable
               style={({ pressed }) => [styles.manageBtn, pressed && styles.pressed]}
               onPress={manageSubscription}
+              disabled={busy}
             >
               <Text style={styles.manageText}>Manage subscription</Text>
             </Pressable>
@@ -237,11 +253,14 @@ export function ProfileScreen() {
         >
           <Text style={styles.goProTitle}>Unlock everything with Pro</Text>
           <Text style={styles.goProBody}>
-            Charts, full history, muscle map & strength ratings. 14 days free, then $1/month —
-            cancel anytime.
+            {entitlement.trialEligible
+              ? `Charts, full history, muscle map & strength ratings. ${PRO_TRIAL_DAYS} days free — no card required.`
+              : "Charts, full history, muscle map & strength ratings. From $0.83/month, cancel anytime."}
           </Text>
           <View style={styles.goProCta}>
-            <Text style={styles.goProCtaText}>Start free trial</Text>
+            <Text style={styles.goProCtaText}>
+              {entitlement.trialEligible ? "Start free trial" : "See plans"}
+            </Text>
           </View>
         </Pressable>
       )}

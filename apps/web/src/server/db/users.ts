@@ -1,4 +1,4 @@
-import { and, count, desc, eq, ilike, or, sql } from "drizzle-orm";
+import { and, count, desc, eq, ilike, isNull, or, sql } from "drizzle-orm";
 import type { AppleIdentity } from "../auth/appleAuth";
 import { db } from "./client";
 import { type NewUser, type Plan, type User, users } from "./schema";
@@ -112,5 +112,69 @@ export async function updateUser(id: string, patch: UpdateUserInput): Promise<Us
 
 export async function deleteUser(id: string): Promise<User | null> {
   const [user] = await db.delete(users).where(eq(users.id, id)).returning();
+  return user ?? null;
+}
+
+// --- Billing --------------------------------------------------------------
+
+/**
+ * Grant the no-card free trial, once. The `is null` guard makes this idempotent
+ * and un-farmable: a user who re-opens the paywall (or replays the request)
+ * keeps their original end date rather than rolling a fresh window. Returns the
+ * user either way, so the caller can just hand back the entitlement.
+ */
+export async function startTrial(id: string, days: number): Promise<User | null> {
+  const now = new Date();
+  const endsAt = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+  const [updated] = await db
+    .update(users)
+    .set({ trialStartedAt: now, trialEndsAt: endsAt, updatedAt: now })
+    .where(and(eq(users.id, id), isNull(users.trialStartedAt)))
+    .returning();
+  // No row updated → the trial was already started; return the existing user.
+  return updated ?? (await getUserById(id));
+}
+
+export async function getUserByStripeCustomerId(customerId: string): Promise<User | null> {
+  const [user] = await db
+    .select()
+    .from(users)
+    .where(eq(users.stripeCustomerId, customerId))
+    .limit(1);
+  return user ?? null;
+}
+
+export async function setStripeCustomerId(id: string, customerId: string): Promise<User | null> {
+  const [user] = await db
+    .update(users)
+    .set({ stripeCustomerId: customerId, updatedAt: new Date() })
+    .where(eq(users.id, id))
+    .returning();
+  return user ?? null;
+}
+
+export interface SubscriptionState {
+  stripeSubscriptionId: string | null;
+  stripeStatus: string | null;
+  cancelAtPeriodEnd: boolean;
+  /** Period end from Stripe — also mirrored into `paidUntil` for /admin. */
+  paidUntil: Date | null;
+  plan: Plan;
+}
+
+/**
+ * Write the subscription state a Stripe webhook just reported. This is the only
+ * path that flips `plan` to "pro" from a payment — the browser redirect is not
+ * trusted, since the user can close the tab before it ever fires.
+ */
+export async function applySubscriptionState(
+  id: string,
+  state: SubscriptionState,
+): Promise<User | null> {
+  const [user] = await db
+    .update(users)
+    .set({ ...state, updatedAt: new Date() })
+    .where(eq(users.id, id))
+    .returning();
   return user ?? null;
 }

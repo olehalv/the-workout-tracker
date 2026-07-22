@@ -45,13 +45,20 @@ marked 🔴; the rest are strongly recommended.
   `apps/web/src/app/page.tsx` points at `href="#"`. Swap for the real App Store
   URL once the app has a listing. (The Google Play button has been **removed** —
   Android isn't supported for now.)
-- 🟡 **Payments are simulated.** `apps/mobile/src/purchases/iap.ts`
-  `purchaseProSubscription()` fakes success and grants Pro **locally only** — it
-  never tells the server, so `/admin` never sees the plan change. If you're
-  launching **without** real billing, either hide the paywall or ship it clearly
-  as a simulation — don't charge against the fake path. Wiring it for real (ASC
-  product → real StoreKit call → server reconciliation) is a full guide of its
-  own: see **[PAYMENTS.md](./PAYMENTS.md)**.
+- 🟡 **Payments need a live Stripe account.** The billing flow is built and
+  wired end-to-end (Stripe Checkout in an in-app browser → webhook → Postgres),
+  but it needs **live-mode** products, prices, a saved customer-portal config, a
+  registered webhook endpoint, and the matching env vars. Until
+  `STRIPE_SECRET_KEY` is set, every billing route returns 503 and the paywall
+  says subscriptions aren't available — safe to deploy, just can't take money.
+  Full walkthrough: **[PAYMENTS.md](./PAYMENTS.md)**.
+- 🟡 **Apple guideline 3.1.1.** Payments bypass the App Store by design (external
+  Stripe Checkout). The US storefront permits this post-*Epic*; other storefronts
+  may require Apple's External Purchase Link entitlement or disallow it.
+  **Verify against current Apple policy before submitting** — see PAYMENTS.md.
+- 🟡 **VAT/sales tax.** As merchant of record you're liable for EU/UK VAT on
+  digital goods, with no registration threshold for EU consumer sales. Decide
+  this before charging (Stripe Tax, or your own registrations).
 
 ---
 
@@ -214,15 +221,18 @@ Notes:
 - The Apple Sign In entitlement comes from the config plugin at prebuild; no
   manual Xcode entitlement editing needed.
 
-### B4. Real In-App Purchase (only if launching paid Pro)
+### B4. Switch payments to live mode (only if launching paid Pro)
 
-If you're shipping the paywall for real money (otherwise skip — see the 🟡
-blocker), the full walkthrough — App Store Connect product, replacing the
-`iap.ts` seam with a real StoreKit/RevenueCat call, and server reconciliation —
-lives in **[PAYMENTS.md](./PAYMENTS.md)**. In short: create the
-`dev.olehalv.theworkouttracker.pro.monthly` subscription ($1/mo, 14-day trial),
-wire the purchase SDK in a native build, and drive `plan`/`paidUntil` from
-store-to-server notifications. Do it before B5 if launching paid.
+The code is already wired — this is Stripe account configuration. The full
+walkthrough is **[PAYMENTS.md](./PAYMENTS.md)**; in short: recreate the product
+and its two prices ($1/month, $10/year) in **live** mode, save the customer
+portal configuration, register the production webhook endpoint at
+`https://your-domain/api/stripe/webhook`, and set `STRIPE_SECRET_KEY`,
+`STRIPE_PRICE_MONTHLY`, `STRIPE_PRICE_ANNUAL`, `STRIPE_WEBHOOK_SECRET` and
+`PUBLIC_BASE_URL` on the deployed web app. Nothing carries over from test mode.
+
+Note there is **no App Store Connect subscription product** — payment happens on
+the web, outside store billing. Check guideline 3.1.1 for your storefronts first.
 
 ### B5. Submit for review
 
@@ -245,8 +255,8 @@ the web app.
 1. Resolve the 🔴 blockers (`ADMIN_PASSWORD`, `SESSION_JWT_SECRET`, App Store link).
 2. Provision Postgres → deploy web → migrate → verify on a real domain (Part A).
 3. Set `EXPO_PUBLIC_USER_API_URL` to that domain; EAS production build (Part B, iOS).
-4. (If paid) follow [PAYMENTS.md](./PAYMENTS.md): ASC subscription + real IAP +
-   server reconciliation.
+4. (If paid) follow [PAYMENTS.md](./PAYMENTS.md): live-mode Stripe products,
+   portal config, webhook endpoint + env vars.
 5. Submit to the App Store. After approval, update the landing-page App Store
    link and redeploy web.
 
@@ -263,9 +273,9 @@ npm run build:web   # production Next build succeeds
 
 ---
 
-## Appendix — wiring real payments
+## Appendix — payments
 
-Moved to its own guide: **[PAYMENTS.md](./PAYMENTS.md)** covers the App Store
-Connect product, replacing the `iap.ts` purchase seam with a real StoreKit/
-RevenueCat call, and reconciling the entitlement into Postgres (so `plan`/
-`paidUntil` — and therefore `/admin` — are authoritative, not just local).
+Has its own guide: **[PAYMENTS.md](./PAYMENTS.md)** covers how the Stripe flow
+works (paywall → Checkout in an in-app browser → webhook → Postgres), the Stripe
+dashboard setup, testing it in Expo Go with test cards, and going live —
+including the VAT and Apple guideline 3.1.1 questions.

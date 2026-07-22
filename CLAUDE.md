@@ -22,12 +22,30 @@ visualize strength progress over time.
   in Postgres and returns a session JWT plus the user (id, email, plan).
 - **Monetization:** a "Pro" paywall in the app gates the analytics features
   (progress charts, full exercise history, muscle-activity map, strength ratings)
-  behind a $1/month subscription with a 14-day free trial. The `web` app tracks
-  each user's `plan` (free/pro) and `paidUntil` in Postgres, and its `/admin`
-  dashboard reads/edits that data directly. The **real StoreKit purchase is not
-  wired yet** — it can't run in Expo Go (needs a dev build + App Store Connect
-  product), so the mobile paywall currently uses a *simulated* purchase behind a
-  single seam (see `apps/mobile/src/purchases/iap.ts`).
+  behind a subscription — **$1/month or $10/year** (annual is the default offer;
+  the ~$0.30 fixed processing fee is ~33% of a $1 charge but only ~3% of a $10
+  one), preceded by a **14-day free trial that needs no card**.
+- **Payments run through Stripe, deliberately outside the App Store / Play
+  Store.** The paywall opens **Stripe Checkout in an in-app browser**
+  (`expo-web-browser`); the `web` app hosts the API + return pages, and Stripe's
+  **webhook** is the only thing that grants Pro. This keeps Apple/Google out of
+  the payment path and means one billing integration covers both platforms.
+  - **Entitlement is computed server-side**, never in the app — see
+    `apps/web/src/server/billing/entitlement.ts`. `/api/auth/me` returns an
+    `entitlement` object (`isPro`, `source`, `trialDaysLeft`, …) and the app just
+    renders it, so a device with a wound-forward clock can't extend its trial.
+    Precedence: live Stripe subscription → admin comp (`/admin` plan toggle) →
+    free trial. `past_due` intentionally keeps Pro while Stripe retries the card.
+  - **The free trial is ours, not Stripe's:** granted on first paywall open (not
+    at signup, so it doesn't burn down while the user is still on free features),
+    recorded as `trial_started_at`/`trial_ends_at`, and idempotent — replaying
+    `POST /api/billing/trial` returns the original end date rather than a fresh
+    window.
+  - **App Store review risk:** linking out to external payment for digital goods
+    is governed by Apple guideline 3.1.1. The US storefront allows it post-*Epic*;
+    other storefronts may require Apple's External Purchase Link entitlement (and
+    commission) or disallow it. **Verify current Apple policy before submitting** —
+    this area moves fast.
 
 ## Repository layout
 
@@ -60,8 +78,28 @@ over HTTP).
   from the root Biome config (no per-app ESLint).
 - **User/auth API** — Next route handlers under `src/app/api` (Node runtime):
   - `POST /api/auth/apple` — `{ identityToken }` → `{ token, expiresIn, user }`.
-  - `GET  /api/auth/me` — `Authorization: Bearer <session token>` → `{ user }`.
+  - `GET  /api/auth/me` — `Authorization: Bearer <session token>` → `{ user }`
+    (the user carries the derived `entitlement`).
   - `GET  /api/health` — liveness check.
+- **Billing API** (all Bearer-authenticated except the webhook):
+  - `POST /api/billing/trial` — grant the no-card 14-day trial. Idempotent.
+  - `POST /api/billing/checkout` — `{ plan: "monthly" | "annual" }` → `{ url }`,
+    a Stripe Checkout URL the app opens in an in-app browser. Creating the
+    session **here** (rather than the app opening a page of ours with the token
+    in the query string) keeps the 30-day session JWT out of URLs, which leak via
+    history/referrers. Grants nothing on its own.
+  - `POST /api/billing/portal` — `{ url }` for the Stripe billing portal (update
+    card, cancel, invoices). 409 when the user has no Stripe customer yet.
+  - `POST /api/stripe/webhook` — signature-verified; **the only path that grants
+    Pro.** Handles `checkout.session.completed` and `customer.subscription.*`,
+    writing `plan`/`paid_until`/`stripe_*` and downgrading on cancellation. Reads
+    the raw body (any re-serialization breaks the signature). Returns 500 on a
+    handler failure so Stripe retries.
+  - When `STRIPE_SECRET_KEY` is unset every billing route returns **503** and the
+    rest of the app still runs, so local dev needs no Stripe account.
+  - Return pages: `src/app/billing/success` + `src/app/billing/cancel` — cosmetic
+    only (entitlement comes from the webhook); their job is the deep link back
+    into the app. `noindex`.
 - **Admin dashboard:** `src/app/admin` — a Server Component showing user stats and
   a searchable/paginated user table (email, Apple id, plan, paid-until) with plan
   toggle + delete. It reads/mutates Postgres **directly** through the server-only
@@ -77,7 +115,10 @@ over HTTP).
   access — there is no insecure fallback. A single shared password, not per-user
   admin accounts (there is no admin role in Postgres).
 - **Server-only code** lives in `src/server/` (never import from a Client
-  Component): `config.ts` (env), `db/schema.ts` (Drizzle `users` table),
+  Component): `billing/stripe.ts` (cached Stripe client, price lookup,
+  `statusGrantsPro`), `billing/entitlement.ts` (`resolveEntitlement` — the single
+  source of truth for Pro access), `auth/requireUser.ts` (shared Bearer-token →
+  user), `config.ts` (env), `db/schema.ts` (Drizzle `users` table),
   `db/client.ts` (pool + drizzle, cached across dev HMR), `db/users.ts` (queries:
   upsert/list/stats/CRUD), `db/migrate.ts` (runs migrations), `auth/appleAuth.ts`
   (verify Apple identity token), `auth/session.ts` (issue/verify our session JWT),
@@ -89,7 +130,11 @@ over HTTP).
   so it's coalesced), then issue our session JWT (its `sub` is our DB user id).
 - Config via env (see `apps/web/.env.example`): `DATABASE_URL`, `APPLE_CLIENT_IDS`
   (audiences = bundle id), `SESSION_JWT_SECRET`, `SESSION_JWT_EXPIRES_IN`,
-  `SESSION_JWT_ISSUER`, `ADMIN_PASSWORD` (gates `/admin`; empty = access denied).
+  `SESSION_JWT_ISSUER`, `ADMIN_PASSWORD` (gates `/admin`; empty = access denied),
+  plus billing: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`,
+  `STRIPE_PRICE_MONTHLY`, `STRIPE_PRICE_ANNUAL`, `PUBLIC_BASE_URL` (origin used
+  for Stripe return URLs — must be reachable from the *phone's* browser, so a LAN
+  IP in dev), `APP_SCHEME`, `TRIAL_DAYS`.
   Dev falls back to an insecure `SESSION_JWT_SECRET` (warns) and auto-accepts Expo
   Go's audience; `DATABASE_URL` is always required. Both Next.js and the Drizzle
   tooling read `apps/web/.env`.
@@ -218,14 +263,31 @@ over HTTP).
     a minimized workout is resting). Auto-starts when a set is added; also manual
     start/skip/±15s. Tabs use `@expo/vector-icons` (Ionicons; bundled with Expo).
 - Pro paywall (`src/purchases/`): `PurchaseProvider` + `usePurchases()`
-  (`PurchaseContext.tsx`) own the Pro entitlement — `isPro` is the server `plan`
-  **or** a local (persisted) subscription — plus `openPaywall()`, `subscribe()`,
-  `manageSubscription()` and `trialDaysLeft`. Provider is mounted above the
-  signed-in app in `App.tsx` (under `AuthProvider`) and renders the `PaywallSheet`
-  (`PaywallSheet.tsx`, a StoreKit-style subscribe sheet: 14-day free trial → $1/mo).
-  The actual purchase call is isolated in `iap.ts` — the **one seam** where a real
-  `react-native-purchases`/`expo-iap` call replaces the Expo-Go simulation (which
-  just grants Pro locally; trial state persists under `STORAGE_KEYS.subscription`).
+  (`PurchaseContext.tsx`) expose `isPro`/`entitlement`/`trialDaysLeft`/`busy` plus
+  `openPaywall()`, `startFreeTrial()`, `subscribe(plan)` and
+  `manageSubscription()`. Provider is mounted above the signed-in app in `App.tsx`
+  (under `AuthProvider`) and renders the `PaywallSheet`.
+  - **`isPro` comes only from the server** (`user.entitlement`, itself cached in
+    SecureStore by `AuthContext`, so offline still works). There is **no local
+    entitlement store** — the old simulated-StoreKit `iap.ts` and
+    `STORAGE_KEYS.subscription` are gone.
+  - `subscribe(plan)` asks the web app for a Checkout URL, opens it with
+    `WebBrowser.openAuthSessionAsync`, then **polls `/api/auth/me`** until the
+    webhook lands. It polls regardless of the browser result — someone who pays
+    and then closes the browser by hand reports `dismiss` but is still a paying
+    customer — but with **two budgets**: ~15s when they returned via the success
+    page's deep link (`type === "success"`), ~4s when they just closed the
+    browser, so a plain cancel isn't stuck behind a spinner. A late webhook is
+    still picked up by `AuthContext`'s refresh-on-foreground.
+  - Return URLs use `Linking.createURL()` so the deep link works under both Expo
+    Go (`exp://…`) and a real build (`workouttracker://…`).
+  - `PaywallSheet.tsx` has two states: trial-eligible → one-tap no-card trial
+    (never opens a browser), with "subscribe now instead" underneath; otherwise
+    the annual/monthly picker → Checkout. Plan labels live in `plans.ts` and must
+    be kept in step with the Stripe prices (there's no store product to read
+    localized pricing from).
+  - Deps: `expo-web-browser` + `expo-linking`, both bundled in Expo Go — so the
+    **whole payment flow is testable in Expo Go**, unlike StoreKit.
   Gated UI is wrapped in `src/components/ProGate.tsx`, which blurs its children
   (`expo-blur` `BlurView`, bundled in Expo Go), makes them non-interactive, and
   overlays a "Requires Pro" button when `locked`. Used on the exercise progress
@@ -322,6 +384,35 @@ To run the real login flow against your own bundle id:
 dev build's added value is that the token's `aud` matches `APPLE_CLIENT_IDS`, so
 the `web` app accepts it.
 
+### Testing payments locally
+
+Unlike StoreKit, the whole payment flow works in **Expo Go** — it's just a web
+checkout in an in-app browser. With `STRIPE_SECRET_KEY` unset the billing routes
+return 503 and the app shows "Subscriptions aren't available yet", which is fine
+for working on anything else. To exercise the real flow in Stripe **test mode**:
+
+1. Create two recurring prices (e.g. $1/month, $10/year) in the Stripe dashboard
+   and put their ids in `STRIPE_PRICE_MONTHLY` / `STRIPE_PRICE_ANNUAL`, plus the
+   `sk_test_…` key in `STRIPE_SECRET_KEY` (all in `apps/web/.env`).
+2. Forward webhooks to the dev server and copy the printed `whsec_…` into
+   `STRIPE_WEBHOOK_SECRET`:
+   ```bash
+   stripe listen --forward-to localhost:3000/api/stripe/webhook
+   ```
+   Without this, checkout completes but **Pro is never granted** — the webhook is
+   the only thing that flips the plan.
+3. Set `PUBLIC_BASE_URL` to a URL the *phone's* browser can reach (your LAN IP,
+   e.g. `http://192.168.1.20:3000`), not `localhost` — that resolves to the phone.
+4. Pay with Stripe's test card `4242 4242 4242 4242`, any future expiry/CVC.
+
+To re-test the paywall from scratch, clear the trial and subscription on your
+user (the app's entitlement is entirely server-side, so this fully resets it):
+
+```bash
+psql -d the_workout_tracker -c "update users set plan='free', paid_until=null, \
+  trial_started_at=null, trial_ends_at=null, stripe_status=null where email='you@example.com';"
+```
+
 ## Conventions
 
 - **Package manager:** npm workspaces only. Do not add pnpm/yarn lockfiles.
@@ -365,11 +456,13 @@ Next steps:
   persisting the rest-timer default length. If progress aggregation outgrows
   in-memory scans, migrate the store behind `src/storage/storage.ts` to
   `expo-sqlite`.
-- Mobile (payments): the Pro paywall UI + gating are built (`src/purchases/`), but
-  the purchase is **simulated** — replace the body of `iap.ts`
-  `purchaseProSubscription()` with a real `react-native-purchases`/`expo-iap` call
-  (needs a dev build + an App Store Connect auto-renewable product with a 14-day
-  intro offer), and reconcile the entitlement with the server `plan`/`paidUntil`.
+- Payments: the Stripe flow is wired end-to-end (paywall → in-app browser →
+  Checkout → webhook → entitlement). Remaining: create the real products/prices
+  in a live-mode Stripe account, set the env vars, register the production
+  webhook endpoint, and decide the tax story — as merchant of record **you** are
+  liable for EU/UK VAT on digital goods (Stripe Tax automates calculation for
+  +0.5% but you still register and remit). Also confirm Apple guideline 3.1.1
+  external-payment rules for the storefronts you ship to.
 - Web: swap the **placeholder** App Store link on the landing page for the real
   URL once the app ships (Google Play is not offered — Android unsupported for
   now, so the Play button was removed). Contact email in Privacy/Terms is set to

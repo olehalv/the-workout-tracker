@@ -56,8 +56,21 @@ export default function TermsPage() {
           <section>
             <h2 className="text-lg font-semibold text-white">Subscriptions</h2>
             <p className="mt-2">
-              Some features may require a paid plan. Pricing and billing terms will be shown before
-              you purchase.
+              Logging workouts, templates, the rest timer, and the exercise library are free. The
+              analytics features — progression charts, full exercise history, the muscle-activity
+              map, and strength ratings — require <strong>Pro</strong>.
+            </p>
+            <p className="mt-2">
+              Pro begins with a <strong>14-day free trial that requires no payment details</strong>.
+              The trial simply ends; nothing is charged and the app reverts to the free features
+              unless you choose to subscribe. One trial per account.
+            </p>
+            <p className="mt-2">
+              Pro costs <strong>$10 per year</strong> or <strong>$1 per month</strong>. Payments are
+              processed by <strong>Stripe</strong>, not through the App Store, and subscriptions
+              renew automatically until canceled. You can cancel at any time from the Me tab in the
+              app, which opens Stripe&rsquo;s billing portal; access continues until the end of the
+              period you have already paid for.
             </p>
           </section>
 

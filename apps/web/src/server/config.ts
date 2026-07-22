@@ -63,4 +63,40 @@ export const config = {
    * insecure fallback, since /admin exposes every user's account data.
    */
   adminPassword: process.env.ADMIN_PASSWORD ?? "",
+
+  /**
+   * Stripe billing. Payments deliberately do NOT go through the App Store /
+   * Play Store: the app opens Stripe Checkout in an in-app browser and the
+   * webhook grants Pro. All of this is optional — when `secretKey` is empty the
+   * billing routes return 503 and the rest of the app (auth, admin) still runs,
+   * so local dev works without a Stripe account.
+   */
+  stripe: {
+    secretKey: process.env.STRIPE_SECRET_KEY ?? "",
+    /** Signing secret for POST /api/stripe/webhook (`whsec_…`). */
+    webhookSecret: process.env.STRIPE_WEBHOOK_SECRET ?? "",
+    /** Price ids for the two Pro plans (created in the Stripe dashboard). */
+    priceMonthly: process.env.STRIPE_PRICE_MONTHLY ?? "",
+    priceAnnual: process.env.STRIPE_PRICE_ANNUAL ?? "",
+  },
+
+  /**
+   * Public origin of this web app, used to build Stripe's success/cancel return
+   * URLs. Must be reachable from the phone's browser — on a physical device in
+   * dev that means the LAN IP, not localhost.
+   */
+  publicBaseUrl: process.env.PUBLIC_BASE_URL ?? "http://localhost:3000",
+
+  /** Deep-link scheme of the mobile app, for the "back to the app" return link. */
+  appScheme: process.env.APP_SCHEME ?? "workouttracker",
+
+  /** Length of the no-card free trial granted on first paywall open. */
+  trialDays: Number(process.env.TRIAL_DAYS ?? "14"),
 } as const;
+
+/** True when Stripe is configured well enough to sell something. */
+export function isBillingConfigured(): boolean {
+  return Boolean(
+    config.stripe.secretKey && (config.stripe.priceMonthly || config.stripe.priceAnnual),
+  );
+}

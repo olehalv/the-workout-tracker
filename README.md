@@ -105,8 +105,8 @@ machine's LAN IP (e.g. `http://192.168.1.20:3000`) instead of `localhost`.
 
 ## Roadmap
 
-Apple login is wired end-to-end (app ↔ web app ↔ Postgres) and the web app has a
-working `/admin` dashboard. Next up: richer progressive-overload charts and editing
-finished workouts; a "Pro" paywall driven by the user's `plan`; real payments
-(billing webhook → `plan`/`paidUntil`); and hardening `/admin` with real auth before
-any public deploy.
+Apple login is wired end-to-end (app ↔ web app ↔ Postgres), the web app has a
+password-gated `/admin` dashboard, and the Pro subscription is built end-to-end —
+Stripe Checkout in an in-app browser, with a webhook driving `plan`/`paidUntil`
+(see [PAYMENTS.md](./PAYMENTS.md); it needs a live Stripe account to take money).
+Next up: richer progressive-overload charts and editing finished workouts.

@@ -1,145 +1,211 @@
-import {
-  createContext,
-  type ReactNode,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import * as Linking from "expo-linking";
+import * as WebBrowser from "expo-web-browser";
+import { createContext, type ReactNode, useCallback, useContext, useMemo, useState } from "react";
 import { Alert } from "react-native";
+import {
+  BillingError,
+  createCheckoutUrl,
+  createPortalUrl,
+  type Entitlement,
+  NO_ENTITLEMENT,
+  startTrial as startTrialRequest,
+} from "../api/client";
 import { useAuth } from "../auth/AuthContext";
-import { loadJSON, STORAGE_KEYS, saveJSON } from "../storage/storage";
-import { PRO_TRIAL_DAYS, purchaseProSubscription } from "./iap";
 import { PaywallSheet } from "./PaywallSheet";
+import type { ProPlan } from "./plans";
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-/** Local record of the device's Pro entitlement. Source of truth is StoreKit in
- * a real build; here it persists the (simulated) purchase so Pro survives reload. */
-export interface ProSubscription {
-  /** "trial" during the free period, "active" once it would convert to paid. */
-  status: "none" | "trial" | "active";
-  /** When the subscription/trial began (ms epoch), or null when never bought. */
-  startedAt: number | null;
-  /** When the free trial ends (ms epoch), or null. */
-  trialEndsAt: number | null;
-}
-
-const NONE: ProSubscription = { status: "none", startedAt: null, trialEndsAt: null };
-
+/**
+ * Pro entitlement + the purchase flow.
+ *
+ * Payment intentionally bypasses StoreKit / Play Billing: `subscribe()` asks the
+ * web app for a Stripe Checkout URL and opens it in an in-app browser. Stripe's
+ * webhook is what actually grants Pro, so after the browser closes we poll the
+ * server until the new entitlement shows up rather than trusting the client.
+ *
+ * There is no local entitlement cache any more — `isPro` comes from the server
+ * user (itself cached in SecureStore by AuthContext, so offline still works).
+ */
 interface PurchaseContextValue {
-  /** True if this device has Pro — via the server plan OR a local subscription. */
+  /** True if this account has Pro — paid subscription, admin comp, or trial. */
   isPro: boolean;
-  subscription: ProSubscription;
-  /** Whole days left in the free trial (0 once it has converted). */
+  entitlement: Entitlement;
+  /** Whole days left in the free trial (0 when not trialing). */
   trialDaysLeft: number;
-  /** Open the paywall / subscribe sheet. */
+  /** A purchase / trial / portal round-trip is in flight. */
+  busy: boolean;
   openPaywall: () => void;
-  /** Run the purchase (called by the paywall sheet). Returns success. */
-  subscribe: () => Promise<boolean>;
-  /** Show how to cancel/manage the subscription. */
-  manageSubscription: () => void;
+  /** Grant the no-card free trial. Returns true when Pro is now unlocked. */
+  startFreeTrial: () => Promise<boolean>;
+  /** Run Stripe Checkout for a plan. Returns true when Pro is now unlocked. */
+  subscribe: (plan: ProPlan) => Promise<boolean>;
+  /** Open the Stripe billing portal (update card, cancel, invoices). */
+  manageSubscription: () => Promise<void>;
 }
 
 const PurchaseContext = createContext<PurchaseContextValue | null>(null);
 
+/**
+ * How long to wait for Stripe's webhook after checkout. It usually lands in
+ * under a second, but it's a server-to-server round trip we don't control.
+ *
+ * Two budgets, because the browser result tells us how likely a payment is:
+ * `success` means the user came back through our success page's deep link, so
+ * wait properly. `cancel`/`dismiss` means they closed the browser themselves —
+ * usually a genuine cancel, so don't pin them behind a long spinner. It can
+ * still be someone who paid and then closed the tab, hence the short grace
+ * window; and if the webhook lands after we stop looking, AuthContext's
+ * refresh-on-foreground picks it up anyway.
+ */
+const CONFIRM_TIMEOUT_MS = 15_000;
+const CONFIRM_DISMISSED_TIMEOUT_MS = 4_000;
+const CONFIRM_INTERVAL_MS = 1_500;
+
 export function PurchaseProvider({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
-  const [subscription, setSubscription] = useState<ProSubscription>(NONE);
-  const [isLoaded, setIsLoaded] = useState(false);
+  const { user, token, refresh } = useAuth();
   const [paywallOpen, setPaywallOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
 
-  // Restore any prior (simulated) purchase on mount.
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const stored = await loadJSON<ProSubscription>(STORAGE_KEYS.subscription, NONE);
-      if (cancelled) return;
-      // Promote an expired trial to "active" — a real trial auto-converts to paid.
-      const next =
-        stored.status === "trial" && stored.trialEndsAt !== null && Date.now() >= stored.trialEndsAt
-          ? { ...stored, status: "active" as const }
-          : stored;
-      setSubscription(next);
-      setIsLoaded(true);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (isLoaded) saveJSON(STORAGE_KEYS.subscription, subscription);
-  }, [isLoaded, subscription]);
+  const entitlement = user?.entitlement ?? NO_ENTITLEMENT;
 
   const openPaywall = useCallback(() => setPaywallOpen(true), []);
 
-  const subscribe = useCallback(async (): Promise<boolean> => {
-    const result = await purchaseProSubscription();
-    if (!result.ok) {
-      if (!result.canceled) {
-        Alert.alert("Purchase failed", result.message ?? "Please try again.");
+  /**
+   * Poll the server until the entitlement turns Pro or we give up. Needed
+   * because the browser closing tells us nothing about whether Stripe has
+   * finished processing the payment.
+   */
+  const waitForPro = useCallback(
+    async (budgetMs: number): Promise<boolean> => {
+      const deadline = Date.now() + budgetMs;
+      for (;;) {
+        const fresh = await refresh();
+        if (fresh?.entitlement.isPro) return true;
+        if (Date.now() >= deadline) return false;
+        await new Promise((resolve) => setTimeout(resolve, CONFIRM_INTERVAL_MS));
       }
+    },
+    [refresh],
+  );
+
+  const startFreeTrial = useCallback(async (): Promise<boolean> => {
+    if (!token) return false;
+    setBusy(true);
+    try {
+      const { alreadyUsed } = await startTrialRequest(token);
+      const fresh = await refresh();
+      if (alreadyUsed && !fresh?.entitlement.isPro) {
+        Alert.alert(
+          "Free trial already used",
+          "You've already had your free trial on this account. Subscribe to keep the Pro features.",
+        );
+        return false;
+      }
+      return fresh?.entitlement.isPro === true;
+    } catch (err) {
+      Alert.alert(
+        "Couldn't start the trial",
+        err instanceof BillingError ? err.message : "Please try again.",
+      );
       return false;
+    } finally {
+      setBusy(false);
     }
-    const now = Date.now();
-    setSubscription({
-      status: "trial",
-      startedAt: now,
-      trialEndsAt: now + PRO_TRIAL_DAYS * DAY_MS,
-    });
-    return true;
-  }, []);
+  }, [token, refresh]);
 
-  const manageSubscription = useCallback(() => {
-    Alert.alert(
-      "Manage subscription",
-      `Your ${PRO_TRIAL_DAYS}-day free trial is non-binding. To cancel — before or after the trial — open Settings › [your Apple Account] › Subscriptions on this device. Cancel during the trial and you're never charged.`,
-      [
-        { text: "OK", style: "default" },
-        // Dev-only: lets you re-test the locked state in Expo Go.
-        ...(__DEV__
-          ? [
-              {
-                text: "Reset (dev)",
-                style: "destructive" as const,
-                onPress: () => setSubscription(NONE),
-              },
-            ]
-          : []),
-      ],
-    );
-  }, []);
+  const subscribe = useCallback(
+    async (plan: ProPlan): Promise<boolean> => {
+      if (!token) return false;
+      setBusy(true);
+      try {
+        const checkoutUrl = await createCheckoutUrl(token, plan);
 
-  const serverPro = user?.plan === "pro";
-  const localPro = subscription.status !== "none";
+        // Linking.createURL builds the right scheme for wherever we're running
+        // (exp://… under Expo Go, workouttracker://… in a real build), so the
+        // success page's "back to the app" link routes home either way.
+        const returnUrl = Linking.createURL("billing/return");
+        const result = await WebBrowser.openAuthSessionAsync(checkoutUrl, returnUrl);
 
-  const trialDaysLeft =
-    subscription.status === "trial" && subscription.trialEndsAt !== null
-      ? Math.max(0, Math.ceil((subscription.trialEndsAt - Date.now()) / DAY_MS))
-      : 0;
+        // Poll regardless of the result type — someone who paid and then closed
+        // the browser by hand reports "dismiss" but is still a paying customer,
+        // and only the server knows which happened. The budget differs, though
+        // (see the constants), so a plain cancel isn't stuck behind a spinner.
+        const returnedViaDeepLink = result.type === "success";
+        const unlocked = await waitForPro(
+          returnedViaDeepLink ? CONFIRM_TIMEOUT_MS : CONFIRM_DISMISSED_TIMEOUT_MS,
+        );
+
+        // Only nag if they actually came back through the success page; closing
+        // the browser is far more often a deliberate "no thanks".
+        if (!unlocked && returnedViaDeepLink) {
+          Alert.alert(
+            "Not confirmed yet",
+            "If you completed the payment, Pro will unlock shortly — reopen the app in a moment. Nothing was charged twice.",
+          );
+        }
+        return unlocked;
+      } catch (err) {
+        Alert.alert(
+          "Couldn't start checkout",
+          err instanceof BillingError ? err.message : "Please try again.",
+        );
+        return false;
+      } finally {
+        setBusy(false);
+      }
+    },
+    [token, waitForPro],
+  );
+
+  const manageSubscription = useCallback(async (): Promise<void> => {
+    if (!token) return;
+
+    // On the no-card trial there is no Stripe customer yet, so the portal would
+    // 409. Explain instead of surfacing an error.
+    if (!entitlement.canManageBilling) {
+      Alert.alert(
+        "Nothing to manage yet",
+        entitlement.source === "trial"
+          ? "You're on the free trial — no payment method, nothing to cancel. Subscribe when it ends to keep Pro."
+          : "This account has no subscription to manage.",
+      );
+      return;
+    }
+
+    setBusy(true);
+    try {
+      const portalUrl = await createPortalUrl(token);
+      const returnUrl = Linking.createURL("billing/return");
+      await WebBrowser.openAuthSessionAsync(portalUrl, returnUrl);
+      // Cancelling / changing the card fires a webhook; pick up the result.
+      await refresh();
+    } catch (err) {
+      Alert.alert(
+        "Couldn't open billing",
+        err instanceof BillingError ? err.message : "Please try again.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }, [token, entitlement.canManageBilling, entitlement.source, refresh]);
 
   const value = useMemo<PurchaseContextValue>(
     () => ({
-      isPro: serverPro || localPro,
-      subscription,
-      trialDaysLeft,
+      isPro: entitlement.isPro,
+      entitlement,
+      trialDaysLeft: entitlement.trialDaysLeft,
+      busy,
       openPaywall,
+      startFreeTrial,
       subscribe,
       manageSubscription,
     }),
-    [serverPro, localPro, subscription, trialDaysLeft, openPaywall, subscribe, manageSubscription],
+    [entitlement, busy, openPaywall, startFreeTrial, subscribe, manageSubscription],
   );
 
   return (
     <PurchaseContext.Provider value={value}>
       {children}
-      <PaywallSheet
-        visible={paywallOpen}
-        onClose={() => setPaywallOpen(false)}
-        onSubscribe={subscribe}
-      />
+      <PaywallSheet visible={paywallOpen} onClose={() => setPaywallOpen(false)} />
     </PurchaseContext.Provider>
   );
 }

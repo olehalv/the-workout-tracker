@@ -49,6 +49,26 @@ export default function PrivacyPage() {
           </section>
 
           <section>
+            <h2 className="text-lg font-semibold text-white">Payments</h2>
+            <p className="mt-2">
+              If you subscribe to Pro, payment is handled by <strong>Stripe</strong>. Your card
+              details go directly to Stripe and are <strong>never seen or stored by us</strong> — we
+              only keep a Stripe customer reference, your plan, and when the current period ends.
+              When a subscription is created we share your email address with Stripe so they can
+              issue receipts. Their handling of that data is covered by{" "}
+              <a
+                href="https://stripe.com/privacy"
+                className="underline hover:text-white"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Stripe&rsquo;s privacy policy
+              </a>
+              . The free trial requires no payment details at all.
+            </p>
+          </section>
+
+          <section>
             <h2 className="text-lg font-semibold text-white">Deleting your data</h2>
             <p className="mt-2">
               Uninstalling the app removes all on-device workout data. To delete your account,

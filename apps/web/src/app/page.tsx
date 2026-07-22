@@ -21,7 +21,12 @@ export default function Home() {
         </p>
 
         <div className="flex flex-col gap-3 sm:flex-row">
-          <StoreButton eyebrow="Download on the" store="App Store" glyph={<AppleGlyph />} disabled />
+          <StoreButton
+            eyebrow="Download on the"
+            store="App Store"
+            glyph={<AppleGlyph />}
+            disabled
+          />
         </div>
 
         <section className="w-full pt-6">
@@ -42,8 +47,10 @@ export default function Home() {
             />
             <PlanCard
               name="Pro"
-              price="$1"
-              cadence="per month"
+              price="$10"
+              cadence="per year"
+              priceNote="or $1/month"
+              badge="Best value"
               highlight
               tagline="See your progress like never before."
               features={[
@@ -56,8 +63,8 @@ export default function Home() {
             />
           </div>
           <p className="mt-4 text-sm text-zinc-500">
-            Pro is <span className="text-zinc-300">14 days free</span>, then just $1/month — cancel
-            anytime. Serious about progressive overload? Pro turns your logs into trends.
+            Start with <span className="text-zinc-300">14 days free — no card required</span>. After
+            that, keep Pro for $10/year (that&rsquo;s 83¢ a month) or $1/month. Cancel anytime.
           </p>
         </section>
       </main>
@@ -83,6 +90,8 @@ function PlanCard({
   name,
   price,
   cadence,
+  priceNote,
+  badge,
   tagline,
   features,
   highlight,
@@ -90,6 +99,9 @@ function PlanCard({
   name: string;
   price: string;
   cadence: string;
+  /** Secondary billing option, e.g. "or $1/month". */
+  priceNote?: string;
+  badge?: string;
   tagline: string;
   features: string[];
   highlight?: boolean;
@@ -100,10 +112,18 @@ function PlanCard({
         highlight ? "border-white/30 bg-white/[0.06]" : "border-white/10 bg-white/[0.02]"
       }`}
     >
-      <div className="flex items-baseline justify-between">
-        <span className="text-lg font-semibold">{name}</span>
-        <span className="text-sm text-zinc-400">
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="flex items-center gap-2">
+          <span className="text-lg font-semibold">{name}</span>
+          {badge ? (
+            <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-black">
+              {badge}
+            </span>
+          ) : null}
+        </span>
+        <span className="text-right text-sm text-zinc-400">
           <span className="text-2xl font-bold text-white">{price}</span> {cadence}
+          {priceNote ? <span className="block text-xs text-zinc-500">{priceNote}</span> : null}
         </span>
       </div>
       <p className="text-sm text-zinc-400">{tagline}</p>

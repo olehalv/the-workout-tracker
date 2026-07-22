@@ -28,5 +28,4 @@ export const STORAGE_KEYS = {
   presets: "mwt.presets.v1",
   settings: "mwt.settings.v1",
   active: "mwt.active.v1",
-  subscription: "mwt.subscription.v1",
 } as const;
