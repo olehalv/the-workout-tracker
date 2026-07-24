@@ -125,6 +125,7 @@ export function WorkoutScreen() {
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
         {active.exercises.map((ex, i) => (
           <ExerciseCard

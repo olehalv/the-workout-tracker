@@ -59,7 +59,11 @@ export function WorkoutSummaryScreen() {
   ];
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
+    >
       <View style={styles.header}>
         <Text style={styles.eyebrow}>Workout complete</Text>
         <Text style={styles.title}>Nice work 💪</Text>

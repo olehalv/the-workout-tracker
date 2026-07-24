@@ -32,6 +32,7 @@ export function TemplatesScreen() {
       ) : null}
 
       <FlatList
+        showsVerticalScrollIndicator={false}
         data={presets}
         keyExtractor={(p) => p.id}
         style={styles.list}

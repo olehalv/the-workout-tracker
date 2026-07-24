@@ -96,6 +96,7 @@ export function WorkoutsScreen() {
 
       <Text style={styles.dayLabel}>{fmtDayLabel(selectedTs)}</Text>
       <FlatList
+        showsVerticalScrollIndicator={false}
         data={dayWorkouts}
         keyExtractor={(w) => w.id}
         style={styles.list}

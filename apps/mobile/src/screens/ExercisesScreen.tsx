@@ -59,6 +59,7 @@ export function ExercisesScreen() {
       />
 
       <FlatList
+        showsVerticalScrollIndicator={false}
         data={sorted}
         keyExtractor={(e) => e.id}
         keyboardShouldPersistTaps="handled"

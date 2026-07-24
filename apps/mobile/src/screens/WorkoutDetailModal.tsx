@@ -51,7 +51,10 @@ export function WorkoutDetailModal({
         />
 
         {workout ? (
-          <ScrollView contentContainerStyle={styles.scrollContent}>
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+          >
             <StatGrid style={styles.statsRow}>
               <Stat
                 style={styles.statTile}

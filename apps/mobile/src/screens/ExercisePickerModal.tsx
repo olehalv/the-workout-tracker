@@ -55,6 +55,7 @@ export function ExercisePickerModal({
         />
 
         <FlatList
+          showsVerticalScrollIndicator={false}
           data={results}
           keyExtractor={(e) => e.id}
           keyboardShouldPersistTaps="handled"

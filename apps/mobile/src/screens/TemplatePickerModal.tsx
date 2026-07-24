@@ -34,6 +34,7 @@ export function TemplatePickerModal({
         />
 
         <FlatList
+          showsVerticalScrollIndicator={false}
           data={presets}
           keyExtractor={(p) => p.id}
           contentContainerStyle={presets.length === 0 ? styles.emptyWrap : styles.listContent}

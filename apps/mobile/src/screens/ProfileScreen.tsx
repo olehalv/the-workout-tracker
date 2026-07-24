@@ -76,6 +76,7 @@ export function ProfileScreen() {
     <ScrollView
       style={styles.container}
       contentContainerStyle={[styles.content, tabScrollClearance]}
+      showsVerticalScrollIndicator={false}
     >
       <ScreenHeader
         eyebrow="Account"

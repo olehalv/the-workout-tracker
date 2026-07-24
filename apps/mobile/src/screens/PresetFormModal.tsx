@@ -136,6 +136,7 @@ export function PresetFormModal({
         />
 
         <FlatList
+          showsVerticalScrollIndicator={false}
           data={results}
           keyExtractor={(e) => e.id}
           keyboardShouldPersistTaps="handled"
