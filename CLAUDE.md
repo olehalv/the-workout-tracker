@@ -1,9 +1,11 @@
 # The Workout Tracker — Monorepo
 
 PRIORITIZE ME:
-- **Comments:** don't write useless comments. Only keep a comment when it's 100%
-  necessary — i.e. it explains *why* something non-obvious is done, a real gotcha,
-  or intent the code can't convey. Never narrate *what* the code plainly does.
+- **Comments:** default to **zero** comments. Add one *only* to document a
+  non-obvious **external** gotcha — a library bug, an OS/runtime/Expo Go footgun, an
+  API that behaves surprisingly. **Never** explain your own code, narrate *what* it
+  does, or justify *why* a function/bridge/abstraction exists — if that needs
+  explaining, fix the naming or structure instead. When unsure, write no comment.
 
 A workout tracking app for weight / strength lifters, focused on **progressive
 overload**. Log workouts, build presets, run a rest timer, manage exercises, and
@@ -160,10 +162,16 @@ over HTTP).
   `npm install` reconciles against existing `node_modules` and silently keeps the
   old version.)
 - **Reanimated / worklets are pinned EXACT — Expo Go footgun.** Hold-and-drag
-  reorder (the active-workout exercise list) uses `react-native-reorderable-list`,
-  which builds on `react-native-gesture-handler` + `react-native-reanimated` 4 (all
-  bundled in Expo Go on SDK 54; the root `GestureHandlerRootView` in
-  `app/_layout.tsx` is required for the gestures). **Reanimated hard-crashes on any
+  reorder (the active-workout exercise list and the template form) uses
+  `react-native-reorderable-list`, which builds on `react-native-gesture-handler` +
+  `react-native-reanimated` 4 (all bundled in Expo Go on SDK 54; the root
+  `GestureHandlerRootView` in `app/_layout.tsx` is required for the gestures — and a
+  `ReorderableList` inside a RN `Modal` needs its own local `GestureHandlerRootView`,
+  see `PresetFormModal`). The library's **default cell animation scales the dragged
+  item to 1.025 and ghosts it to 0.75 opacity**, which overflows the row's slot and
+  clips into neighbours; we disable both via a shared `cellAnimations` constant
+  (`src/components/reorder.ts`, `REORDER_CELL_ANIMATIONS`) and signal "picked up" with
+  a border + shadow on the card instead. Pass it to every `ReorderableList`. **Reanimated hard-crashes on any
   JS↔native version mismatch**, and Expo Go ships the exact native versions its SDK
   pins — so `react-native-reanimated` (`4.1.1`) and `react-native-worklets`
   (`0.5.1`) are pinned without a range. `expo install` / `npm update` float them to
@@ -200,6 +208,19 @@ over HTTP).
   `surface`/`pressed`/`disabled` style fragments). Barrel-exported from
   `src/components/ui/index.ts`. Add new reusable primitives here rather than
   re-deriving them in a screen; extend a component's props before forking a copy.
+- **Liquid glass goes through the kit — never hand-roll `GlassView`.** Raw
+  `expo-glass-effect` (`GlassView` / `isLiquidGlassAvailable`) is allowed **only**
+  inside `src/components/ui/`. Any tappable glass surface (accent CTA, secondary
+  button, glass pill) is a `GlassPressable` (or `Button`, which now delegates to it);
+  pass `tint` for the fill, `surfaceStyle` for layout, `fallbackStyle` for the solid
+  pre-iOS-26 look. `GlassPressable` centralizes the two footguns — GlassView
+  degrades to a background-less View off iOS 26 (so it keeps a solid fallback), and
+  glass corrupts under `opacity < 1` (so `disabled`/busy always takes the solid
+  path). Reuse these instead of re-copying the gate + `GlassView` boilerplate. The
+  one legitimate exception is `Segmented`, whose per-segment active/inactive glass
+  sits inside a single shared `Pressable` (not the Pressable-wraps-Glass shape
+  `GlassPressable` encodes); it still reuses the shared `GLASS` flag. **General rule:
+  if a component already does the job, reuse it — don't reimplement it.**
 - Navigation: **`expo-router` file-based routing** with a **native iOS tab bar**.
   `app/(app)/(tabs)/_layout.tsx` uses `NativeTabs` from
   `expo-router/unstable-native-tabs` — a real `UITabBarController`, so on **iOS 26
@@ -274,9 +295,15 @@ over HTTP).
     each `PresetExercise` carrying a target `sets` count) in the store; starting
     from one pre-fills that many empty sets per exercise. Live on the **Templates**
     tab (`src/screens/TemplatesScreen.tsx`); create/edit/delete + per-exercise
-    set-count steppers + reorder (up/down) in `src/screens/PresetFormModal.tsx`;
-    also "save active workout as template" from `WorkoutScreen`. Starting a
-    template is disabled while a workout is active.
+    set-count steppers + hold-and-drag reorder (`react-native-reorderable-list`,
+    same as the active workout) in `src/screens/PresetFormModal.tsx`; also "save
+    active workout as template" from `WorkoutScreen`. The template picker
+    (`TemplatePickerModal`, opened from the Workouts tab) also offers "+ New
+    template" so a template can be created without visiting the Templates tab.
+    Starting a template is disabled while a workout is active. **Because the form
+    lives in a RN `Modal`, its `ReorderableList` is wrapped in its own
+    `GestureHandlerRootView`** — a `Modal` detaches from the app-root one in
+    `app/_layout.tsx`, so gestures inside it are dead without a local root.
   - Tab screens: `src/screens/WorkoutsScreen.tsx` (start/resume + a paged weekly
     `WeekCalendar.tsx` strip — one week per swipe, current week first, lazily
     loading one more week each page back up to ~1 year; filters history to the
@@ -312,7 +339,12 @@ over HTTP).
   - Rest timer: `src/workouts/RestTimerContext.tsx` (`RestTimerProvider` +
     `useRestTimer`; end-timestamp countdown, buzzes via RN `Vibration` on
     completion). The provider is mounted above the workout screen and the tab
-    shell (in `app/(app)/_layout.tsx`) so the countdown survives minimizing. UI:
+    shell (in `app/(app)/_layout.tsx`) so the countdown survives minimizing. The
+    chosen default length is **owned by `WorkoutContext`** (persisted with the other
+    settings) and fed in via `duration`/`onDurationChange` props through a small
+    `RestTimer` bridge in the layout — so changing 1:30 → 3:00 sticks across
+    restarts, and `RestTimerContext` stays decoupled from the store (no import
+    cycle). UI:
     `src/screens/RestTimerBar.tsx` (control above the workout footer) and
     `src/screens/RestPill.tsx` (tap-to-resume pill shown on the tab screens while
     a minimized workout is resting). Auto-starts when a set is added; also manual
@@ -486,9 +518,11 @@ psql -d the_workout_tracker -c "update users set plan='free', paid_until=null, \
   `src/server/db/schema.ts`, run `npm run db:generate`, commit the SQL in
   `apps/web/drizzle/`, then `db:migrate`.
 - **UI:** dark, minimal, modern. Keep the marketing site tiny.
-- **Comments:** don't write useless comments. Only keep a comment when it's 100%
-  necessary — i.e. it explains *why* something non-obvious is done, a real gotcha,
-  or intent the code can't convey. Never narrate *what* the code plainly does.
+- **Comments:** default to **zero** comments. Add one *only* to document a
+  non-obvious **external** gotcha — a library bug, an OS/runtime/Expo Go footgun, an
+  API that behaves surprisingly. **Never** explain your own code, narrate *what* it
+  does, or justify *why* a function/bridge/abstraction exists — if that needs
+  explaining, fix the naming or structure instead. When unsure, write no comment.
 - **Expo / React Native facts change fast — verify, don't recall.** Expo SDKs and
   Expo Go change behavior release to release (which modules are bundled in Expo
   Go, config-plugin requirements, `app.json` keys, prebuild flags, API
@@ -509,11 +543,11 @@ working `/admin` user dashboard, and the mobile app now has the core workout loo
 persistence (AsyncStorage), the workout/exercise/set data model, a seeded +
 custom exercise library, logging UI with notes, and per-exercise progress charts.
 Next steps:
-- Mobile: editing a finished workout after the fact, richer progressive-overload
-  charts (volume view, per-set previous data rather than just the top set), and
-  persisting the rest-timer default length. If progress aggregation outgrows
-  in-memory scans, migrate the store behind `src/storage/storage.ts` to
-  `expo-sqlite`.
+- Mobile: editing a finished workout after the fact, and richer progressive-overload
+  charts (volume view, per-set previous data rather than just the top set). The
+  rest-timer default length now persists (stored in `WorkoutContext` settings, fed
+  into `RestTimerProvider` via props). If progress aggregation outgrows in-memory
+  scans, migrate the store behind `src/storage/storage.ts` to `expo-sqlite`.
 - iCloud backup: wired end-to-end (local-first + `react-native-cloud-storage`
   mirror) but only exercisable in a **dev build**, not Expo Go, and so far only
   against the CloudKit **Development** environment. Before shipping: flip

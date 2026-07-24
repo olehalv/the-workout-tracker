@@ -1,7 +1,15 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useEffect, useMemo, useState } from "react";
-import { Alert, FlatList, Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import ReorderableList, {
+  type ReorderableListRenderItemInfo,
+  reorderItems,
+  useIsActive,
+  useReorderableDrag,
+} from "react-native-reorderable-list";
 import { ExerciseListRow } from "../components/ExerciseListRow";
+import { REORDER_CELL_ANIMATIONS } from "../components/reorder";
 import { Button, common, Input, ScreenHeader, SectionLabel } from "../components/ui";
 import { theme } from "../theme";
 import {
@@ -81,15 +89,6 @@ export function PresetFormModal({
       ),
     );
   };
-  const move = (index: number, dir: -1 | 1) => {
-    setSelected((cur) => {
-      const j = index + dir;
-      if (j < 0 || j >= cur.length) return cur;
-      const next = [...cur];
-      [next[index], next[j]] = [next[j], next[index]];
-      return next;
-    });
-  };
 
   const onExerciseCreated = (ex: LibraryExercise) => {
     add(ex.id, ex.name);
@@ -127,7 +126,9 @@ export function PresetFormModal({
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose} transparent={false}>
-      <View style={styles.container}>
+      {/* RN Modal detaches from the app-root GestureHandlerRootView, so the drag
+          gestures need their own root here. */}
+      <GestureHandlerRootView style={styles.container}>
         <ScreenHeader
           title={isEdit ? "Edit template" : "New template"}
           titleSize={22}
@@ -135,11 +136,13 @@ export function PresetFormModal({
           style={styles.header}
         />
 
-        <FlatList
-          showsVerticalScrollIndicator={false}
-          data={results}
-          keyExtractor={(e) => e.id}
+        <ReorderableList
+          data={selected}
+          keyExtractor={(e) => e.uid}
+          onReorder={({ from, to }) => setSelected((cur) => reorderItems(cur, from, to))}
+          cellAnimations={REORDER_CELL_ANIMATIONS}
           keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.listContent}
           ListHeaderComponent={
             <View>
@@ -160,68 +163,19 @@ export function PresetFormModal({
               {selected.length === 0 ? (
                 <Text style={styles.hint}>Tap exercises below to add them, in order.</Text>
               ) : (
-                <View style={styles.selList}>
-                  {selected.map((e, i) => (
-                    <View key={e.uid} style={styles.selRow}>
-                      <View style={styles.reorder}>
-                        <Pressable
-                          disabled={i === 0}
-                          onPress={() => move(i, -1)}
-                          hitSlop={4}
-                          style={styles.reorderBtn}
-                        >
-                          <Ionicons
-                            name="chevron-up"
-                            size={16}
-                            color={i === 0 ? theme.colors.border : theme.colors.textMuted}
-                          />
-                        </Pressable>
-                        <Pressable
-                          disabled={i === selected.length - 1}
-                          onPress={() => move(i, 1)}
-                          hitSlop={4}
-                          style={styles.reorderBtn}
-                        >
-                          <Ionicons
-                            name="chevron-down"
-                            size={16}
-                            color={
-                              i === selected.length - 1
-                                ? theme.colors.border
-                                : theme.colors.textMuted
-                            }
-                          />
-                        </Pressable>
-                      </View>
-                      <Text style={styles.selName} numberOfLines={1}>
-                        {e.name}
-                      </Text>
-                      <View style={styles.stepper}>
-                        <Pressable
-                          style={({ pressed }) => [styles.stepBtn, pressed && common.pressed]}
-                          onPress={() => changeSets(e.uid, -1)}
-                          hitSlop={4}
-                        >
-                          <Text style={styles.stepText}>−</Text>
-                        </Pressable>
-                        <Text style={styles.stepVal}>{e.sets}</Text>
-                        <Pressable
-                          style={({ pressed }) => [styles.stepBtn, pressed && common.pressed]}
-                          onPress={() => changeSets(e.uid, 1)}
-                          hitSlop={4}
-                        >
-                          <Text style={styles.stepText}>+</Text>
-                        </Pressable>
-                      </View>
-                      <Text style={styles.setsUnit}>sets</Text>
-                      <Pressable onPress={() => removeAt(e.uid)} hitSlop={6}>
-                        <Text style={styles.selRemove}>×</Text>
-                      </Pressable>
-                    </View>
-                  ))}
-                </View>
+                <Text style={styles.hint}>Hold the grip to drag and reorder.</Text>
               )}
-
+            </View>
+          }
+          renderItem={({ item }: ReorderableListRenderItemInfo<SelItem>) => (
+            <SelectedRow
+              item={item}
+              onChangeSets={(delta) => changeSets(item.uid, delta)}
+              onRemove={() => removeAt(item.uid)}
+            />
+          )}
+          ListFooterComponent={
+            <View style={styles.footer}>
               <Input
                 style={styles.search}
                 placeholder="Search or create an exercise"
@@ -239,21 +193,24 @@ export function PresetFormModal({
                   <Text style={styles.createHint}>Set muscle group, then create &amp; add</Text>
                 </Pressable>
               ) : null}
+              <View style={styles.results}>
+                {results.map((item) => {
+                  const count = counts.get(item.id) ?? 0;
+                  return (
+                    <ExerciseListRow
+                      key={item.id}
+                      name={item.name}
+                      meta={`${muscleLabel(item)}${item.custom ? " · custom" : ""}${
+                        count > 0 ? ` · ${count} in template` : ""
+                      }`}
+                      onPress={() => add(item.id, item.name)}
+                      showAdd
+                    />
+                  );
+                })}
+              </View>
             </View>
           }
-          renderItem={({ item }) => {
-            const count = counts.get(item.id) ?? 0;
-            return (
-              <ExerciseListRow
-                name={item.name}
-                meta={`${muscleLabel(item)}${item.custom ? " · custom" : ""}${
-                  count > 0 ? ` · ${count} in template` : ""
-                }`}
-                onPress={() => add(item.id, item.name)}
-                showAdd
-              />
-            );
-          }}
         />
 
         <Button
@@ -278,8 +235,59 @@ export function PresetFormModal({
           onCreated={onExerciseCreated}
           onClose={() => setCreatingExercise(false)}
         />
-      </View>
+      </GestureHandlerRootView>
     </Modal>
+  );
+}
+
+function SelectedRow({
+  item,
+  onChangeSets,
+  onRemove,
+}: {
+  item: SelItem;
+  onChangeSets: (delta: number) => void;
+  onRemove: () => void;
+}) {
+  const drag = useReorderableDrag();
+  const isActive = useIsActive();
+  return (
+    <View style={[styles.selRow, isActive && styles.selRowActive]}>
+      <Pressable
+        onLongPress={drag}
+        delayLongPress={150}
+        disabled={isActive}
+        hitSlop={8}
+        style={styles.dragHandle}
+        accessibilityLabel="Drag to reorder exercise"
+      >
+        <Ionicons name="reorder-three" size={22} color={theme.colors.textMuted} />
+      </Pressable>
+      <Text style={styles.selName} numberOfLines={1}>
+        {item.name}
+      </Text>
+      <View style={styles.stepper}>
+        <Pressable
+          style={({ pressed }) => [styles.stepBtn, pressed && common.pressed]}
+          onPress={() => onChangeSets(-1)}
+          hitSlop={4}
+        >
+          <Text style={styles.stepText}>−</Text>
+        </Pressable>
+        <Text style={styles.stepVal}>{item.sets}</Text>
+        <Pressable
+          style={({ pressed }) => [styles.stepBtn, pressed && common.pressed]}
+          onPress={() => onChangeSets(1)}
+          hitSlop={4}
+        >
+          <Text style={styles.stepText}>+</Text>
+        </Pressable>
+      </View>
+      <Text style={styles.setsUnit}>sets</Text>
+      <Pressable onPress={onRemove} hitSlop={6}>
+        <Text style={styles.selRemove}>×</Text>
+      </Pressable>
+    </View>
   );
 }
 
@@ -296,7 +304,6 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingBottom: theme.space(4),
-    gap: theme.space(2),
   },
   label: {
     marginBottom: theme.space(2),
@@ -310,10 +317,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginBottom: theme.space(3),
   },
-  selList: {
-    gap: theme.space(2),
-    marginBottom: theme.space(3),
-  },
   selRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -324,12 +327,18 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius.md,
     paddingHorizontal: theme.space(3),
     paddingVertical: theme.space(2),
+    marginBottom: theme.space(2),
   },
-  reorder: {
-    alignItems: "center",
+  selRowActive: {
+    borderColor: theme.colors.accent,
+    shadowColor: "#000",
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 8,
   },
-  reorderBtn: {
-    paddingVertical: 1,
+  dragHandle: {
+    paddingRight: theme.space(1),
   },
   selName: {
     flex: 1,
@@ -373,6 +382,12 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "700",
     paddingLeft: theme.space(1),
+  },
+  footer: {
+    marginTop: theme.space(1),
+  },
+  results: {
+    gap: theme.space(2),
   },
   search: {
     marginBottom: theme.space(2),

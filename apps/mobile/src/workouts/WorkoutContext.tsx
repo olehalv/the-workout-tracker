@@ -9,6 +9,7 @@ import {
 } from "react";
 import { loadJSON, STORAGE_KEYS, saveJSON } from "../storage/storage";
 import { defaultLibrary } from "./defaultExercises";
+import { DEFAULT_REST } from "./RestTimerContext";
 import type { Sex } from "./strengthStandards";
 import type {
   LibraryExercise,
@@ -24,6 +25,7 @@ interface StoredSettings {
   unit: WeightUnit;
   bodyweight: number | null;
   sex: Sex | null;
+  restDuration: number;
 }
 
 interface StoredActive {
@@ -83,6 +85,8 @@ interface WorkoutContextValue {
   setBodyweight: (kg: number | null) => void;
   sex: Sex | null;
   setSex: (sex: Sex) => void;
+  restDuration: number;
+  setRestDuration: (seconds: number) => void;
   startWorkout: () => void;
   startWorkoutFromPreset: (preset: WorkoutPreset) => void;
   minimizeWorkout: () => void;
@@ -124,6 +128,7 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
   const [unit, setUnit] = useState<WeightUnit>("kg");
   const [bodyweight, setBodyweight] = useState<number | null>(null);
   const [sex, setSex] = useState<Sex | null>(null);
+  const [restDuration, setRestDuration] = useState(DEFAULT_REST);
 
   useEffect(() => {
     let cancelled = false;
@@ -158,6 +163,11 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
           ? storedSettings.sex
           : null,
       );
+      setRestDuration(
+        typeof storedSettings.restDuration === "number" && storedSettings.restDuration > 0
+          ? storedSettings.restDuration
+          : DEFAULT_REST,
+      );
       setIsLoaded(true);
     })();
     return () => {
@@ -176,8 +186,8 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
     if (isLoaded) saveJSON(STORAGE_KEYS.presets, presets);
   }, [isLoaded, presets]);
   useEffect(() => {
-    if (isLoaded) saveJSON(STORAGE_KEYS.settings, { unit, bodyweight, sex });
-  }, [isLoaded, unit, bodyweight, sex]);
+    if (isLoaded) saveJSON(STORAGE_KEYS.settings, { unit, bodyweight, sex, restDuration });
+  }, [isLoaded, unit, bodyweight, sex, restDuration]);
   useEffect(() => {
     if (isLoaded) saveJSON(STORAGE_KEYS.active, { workout: active, minimized });
   }, [isLoaded, active, minimized]);
@@ -435,6 +445,8 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
       setBodyweight,
       sex,
       setSex,
+      restDuration,
+      setRestDuration,
       startWorkout,
       startWorkoutFromPreset,
       minimizeWorkout,
@@ -469,6 +481,7 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
       unit,
       bodyweight,
       sex,
+      restDuration,
       startWorkout,
       startWorkoutFromPreset,
       minimizeWorkout,

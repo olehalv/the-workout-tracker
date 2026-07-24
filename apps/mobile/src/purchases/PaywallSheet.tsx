@@ -9,6 +9,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { GlassPressable } from "../components/ui";
 import { theme } from "../theme";
 import { usePurchases } from "./PurchaseContext";
 import { DEFAULT_PLAN, PLAN_OPTIONS, PRO_TRIAL_DAYS, type ProPlan } from "./plans";
@@ -123,10 +124,13 @@ export function PaywallSheet({ visible, onClose }: { visible: boolean; onClose: 
             </View>
           ) : null}
 
-          <Pressable
-            style={({ pressed }) => [styles.cta, (pressed || busy) && styles.ctaPressed]}
-            onPress={handlePrimary}
+          <GlassPressable
+            tint={theme.colors.accent}
             disabled={busy}
+            onPress={handlePrimary}
+            style={styles.ctaWrap}
+            surfaceStyle={styles.cta}
+            fallbackStyle={styles.ctaSolid}
           >
             {busy ? (
               <ActivityIndicator color="#FFFFFF" />
@@ -135,7 +139,7 @@ export function PaywallSheet({ visible, onClose }: { visible: boolean; onClose: 
                 {offerTrial ? `Start ${PRO_TRIAL_DAYS}-day free trial` : "Continue to payment"}
               </Text>
             )}
-          </Pressable>
+          </GlassPressable>
 
           <Text style={styles.fineprint}>
             {offerTrial
@@ -293,17 +297,19 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "800",
   },
+  ctaWrap: {
+    alignSelf: "stretch",
+  },
   cta: {
     alignSelf: "stretch",
-    backgroundColor: theme.colors.accent,
     borderRadius: theme.radius.md,
     paddingVertical: theme.space(4),
     alignItems: "center",
     justifyContent: "center",
     minHeight: 52,
   },
-  ctaPressed: {
-    opacity: 0.85,
+  ctaSolid: {
+    backgroundColor: theme.colors.accent,
   },
   ctaText: {
     color: "#FFFFFF",

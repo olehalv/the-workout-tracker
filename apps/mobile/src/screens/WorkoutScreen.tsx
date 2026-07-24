@@ -15,6 +15,7 @@ import ReorderableList, {
   useIsActive,
   useReorderableDrag,
 } from "react-native-reorderable-list";
+import { REORDER_CELL_ANIMATIONS } from "../components/reorder";
 import { Button, Card, common, GlassPressable } from "../components/ui";
 import { theme } from "../theme";
 import { useRestTimer } from "../workouts/RestTimerContext";
@@ -125,6 +126,7 @@ export function WorkoutScreen() {
         data={active.exercises}
         keyExtractor={(ex) => ex.id}
         onReorder={({ from, to }) => reorderExercises(from, to)}
+        cellAnimations={REORDER_CELL_ANIMATIONS}
         shouldUpdateActiveItem
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}

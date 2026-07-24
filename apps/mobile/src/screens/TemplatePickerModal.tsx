@@ -1,9 +1,11 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { useState } from "react";
 import { FlatList, Modal, Pressable, StyleSheet, Text, View } from "react-native";
-import { common, ScreenHeader } from "../components/ui";
+import { Button, common, ScreenHeader } from "../components/ui";
 import { theme } from "../theme";
 import type { WorkoutPreset } from "../workouts/types";
 import { useWorkouts } from "../workouts/WorkoutContext";
+import { PresetFormModal } from "./PresetFormModal";
 
 function totalPresetSets(p: WorkoutPreset): number {
   return p.exercises.reduce((n, e) => n + e.sets, 0);
@@ -17,6 +19,7 @@ export function TemplatePickerModal({
   onClose: () => void;
 }) {
   const { presets, startWorkoutFromPreset } = useWorkouts();
+  const [creating, setCreating] = useState(false);
 
   const start = (p: WorkoutPreset) => {
     startWorkoutFromPreset(p);
@@ -33,13 +36,22 @@ export function TemplatePickerModal({
           style={styles.header}
         />
 
+        <Button
+          title="+ New template"
+          variant="dashed"
+          onPress={() => setCreating(true)}
+          style={styles.addBtn}
+        />
+
         <FlatList
           showsVerticalScrollIndicator={false}
           data={presets}
           keyExtractor={(p) => p.id}
           contentContainerStyle={presets.length === 0 ? styles.emptyWrap : styles.listContent}
           ListEmptyComponent={
-            <Text style={styles.empty}>No templates yet. Create one on the Templates tab.</Text>
+            <Text style={styles.empty}>
+              No templates yet. Create one to start workouts from a saved plan.
+            </Text>
           }
           renderItem={({ item }) => (
             <Pressable
@@ -57,6 +69,8 @@ export function TemplatePickerModal({
             </Pressable>
           )}
         />
+
+        <PresetFormModal visible={creating} preset={null} onClose={() => setCreating(false)} />
       </View>
     </Modal>
   );
@@ -70,6 +84,9 @@ const styles = StyleSheet.create({
     paddingTop: theme.space(14),
   },
   header: {
+    marginBottom: theme.space(4),
+  },
+  addBtn: {
     marginBottom: theme.space(4),
   },
   listContent: {

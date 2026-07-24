@@ -26,10 +26,31 @@ const RestTimerContext = createContext<RestTimer | null>(null);
 
 // Countdown driven by an end-timestamp (robust to timer drift); buzzes once on
 // completion. Mounted above the workout screen and tab shell so it survives minimize.
-export function RestTimerProvider({ children }: { children: ReactNode }) {
-  const [duration, setDurationState] = useState(DEFAULT_REST);
+// The chosen rest length is owned by the caller (persisted in WorkoutContext) and fed
+// in via `duration`/`onDurationChange`.
+export function RestTimerProvider({
+  children,
+  duration: durationProp,
+  onDurationChange,
+}: {
+  children: ReactNode;
+  duration?: number;
+  onDurationChange?: (seconds: number) => void;
+}) {
+  const [durationFallback, setDurationFallback] = useState(DEFAULT_REST);
+  const duration = durationProp ?? durationFallback;
   const [endsAt, setEndsAt] = useState<number | null>(null);
   const [remaining, setRemaining] = useState(0);
+
+  const applyDuration = useCallback(
+    (seconds: number) => {
+      const secs = Math.max(REST_STEP, seconds);
+      setDurationFallback(secs);
+      onDurationChange?.(secs);
+      return secs;
+    },
+    [onDurationChange],
+  );
 
   useEffect(() => {
     if (endsAt === null) return;
@@ -48,12 +69,11 @@ export function RestTimerProvider({ children }: { children: ReactNode }) {
 
   const start = useCallback(
     (seconds?: number) => {
-      const secs = Math.max(REST_STEP, seconds ?? duration);
-      setDurationState(secs);
+      const secs = seconds !== undefined ? applyDuration(seconds) : Math.max(REST_STEP, duration);
       setRemaining(secs);
       setEndsAt(Date.now() + secs * 1000);
     },
-    [duration],
+    [duration, applyDuration],
   );
 
   const skip = useCallback(() => {
@@ -65,9 +85,12 @@ export function RestTimerProvider({ children }: { children: ReactNode }) {
     setEndsAt((prev) => (prev === null ? prev : Math.max(Date.now() + 1000, prev + delta * 1000)));
   }, []);
 
-  const setDuration = useCallback((seconds: number) => {
-    setDurationState(Math.max(REST_STEP, seconds));
-  }, []);
+  const setDuration = useCallback(
+    (seconds: number) => {
+      applyDuration(seconds);
+    },
+    [applyDuration],
+  );
 
   const value = useMemo<RestTimer>(
     () => ({ running: endsAt !== null, remaining, duration, start, skip, addTime, setDuration }),

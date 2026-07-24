@@ -1,22 +1,10 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { GlassView, isLiquidGlassAvailable } from "expo-glass-effect";
-import {
-  Pressable,
-  type StyleProp,
-  StyleSheet,
-  Text,
-  type TextStyle,
-  type ViewStyle,
-} from "react-native";
+import { type StyleProp, StyleSheet, Text, type TextStyle, type ViewStyle } from "react-native";
 import { theme } from "../../theme";
-import { common } from "./common";
+import { GlassPressable } from "./GlassPressable";
 
 type Variant = "primary" | "secondary" | "danger" | "dashed";
 type Size = "md" | "sm";
-
-// GlassView degrades to a background-less View off iOS 26, so gate on this and
-// keep the solid styling as the fallback.
-const GLASS = isLiquidGlassAvailable();
 
 const TEXT_COLOR: Record<Variant, string> = {
   primary: theme.colors.onAccent,
@@ -68,42 +56,22 @@ export function Button({
     </>
   );
 
-  // Glass can't be dimmed (opacity < 1 corrupts it), so disabled uses the solid path.
-  if (GLASS && !disabled) {
-    return (
-      <Pressable onPress={onPress} style={style}>
-        <GlassView
-          isInteractive
-          glassEffectStyle="regular"
-          tintColor={GLASS_TINT[variant]}
-          style={[
-            styles.base,
-            size === "sm" ? styles.glassSizeSm : styles.sizeMd,
-            variant !== "primary" && styles.glassBorder,
-            variant === "dashed" && styles.glassDashed,
-          ]}
-        >
-          {label}
-        </GlassView>
-      </Pressable>
-    );
-  }
-
   return (
-    <Pressable
-      disabled={disabled}
+    <GlassPressable
       onPress={onPress}
-      style={({ pressed }) => [
+      disabled={disabled}
+      tint={GLASS_TINT[variant]}
+      style={style}
+      surfaceStyle={[
         styles.base,
         size === "sm" ? styles.sizeSm : styles.sizeMd,
-        styles[variant],
-        disabled && common.disabled,
-        pressed && common.pressed,
-        style,
+        variant !== "primary" && styles.glassBorder,
+        variant === "dashed" && styles.glassDashed,
       ]}
+      fallbackStyle={styles[variant]}
     >
       {label}
-    </Pressable>
+    </GlassPressable>
   );
 }
 
@@ -121,11 +89,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.space(5),
   },
   sizeSm: {
-    paddingVertical: theme.space(3),
-    paddingHorizontal: theme.space(4),
-    borderRadius: theme.radius.sm,
-  },
-  glassSizeSm: {
     paddingVertical: theme.space(3),
     paddingHorizontal: theme.space(4),
     borderRadius: theme.radius.sm,

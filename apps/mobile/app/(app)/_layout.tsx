@@ -1,4 +1,5 @@
 import { Redirect, Slot } from "expo-router";
+import type { ReactNode } from "react";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../src/auth/AuthContext";
@@ -13,6 +14,16 @@ import { useWorkouts, WorkoutProvider } from "../../src/workouts/WorkoutContext"
 // The active workout and post-workout summary take over the whole screen (hiding the
 // native tab bar) by rendering in place of the tabs' <Slot>, mirroring the pre-router
 // MainScreens gate. The tab bar returns once neither is showing.
+// Bridges the persisted rest-timer default into the store-agnostic RestTimerProvider.
+function RestTimer({ children }: { children: ReactNode }) {
+  const { restDuration, setRestDuration } = useWorkouts();
+  return (
+    <RestTimerProvider duration={restDuration} onDurationChange={setRestDuration}>
+      {children}
+    </RestTimerProvider>
+  );
+}
+
 function WorkoutGate() {
   const { active, minimized, summary } = useWorkouts();
 
@@ -54,9 +65,9 @@ export default function AppLayout() {
   return (
     <PurchaseProvider>
       <WorkoutProvider>
-        <RestTimerProvider>
+        <RestTimer>
           <WorkoutGate />
-        </RestTimerProvider>
+        </RestTimer>
       </WorkoutProvider>
     </PurchaseProvider>
   );
