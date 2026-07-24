@@ -38,7 +38,8 @@
           "iCloudContainerEnvironment": "Development",
           "iCloudContainerIdentifier": "iCloud.dev.olehalv.theworkouttracker"
         }
-      ]
+      ],
+      "expo-router"
     ],
     "extra": {
       "eas": {

@@ -144,14 +144,25 @@ over HTTP).
 - Stack: Expo SDK 54 (RN 0.81), React Native, TypeScript. SDK 54 is the stable
   release the public App Store Expo Go supports — do not bump to a prerelease SDK
   (e.g. 57), or Expo Go on physical devices rejects the project ("requires a newer
-  version of Expo Go"). `react`/`react-native` are pinned to SDK 54's versions and
-  a root `overrides` entry keeps `react-native-is-edge-to-edge` from pulling a
-  newer RN via its `*` peer.
+  version of Expo Go"). `react`/`react-native` are pinned to SDK 54's versions. Root
+  `overrides` enforce a **single React across the monorepo** (`react`/`react-dom`
+  → `19.1.0`) plus the `react-native-is-edge-to-edge` RN pin: without the React
+  override, `expo-router`'s dep tree resolves loose `react` ranges to a newer 19.x
+  and hoists it, leaving the mobile bundle with **two React copies** → "Cannot read
+  property 'useState' of null" on launch. Next 16 (web) accepts `^19.0.0`, so it's
+  fine on 19.1.0 too. Bump these alongside the Expo SDK's React. (Overrides only
+  re-resolve on a clean install — `rm -rf node_modules package-lock.json`; a plain
+  `npm install` reconciles against existing `node_modules` and silently keeps the
+  old version.)
 - Login (implemented): Sign in with Apple via `expo-apple-authentication`. The
   `identityToken` is POSTed to the `web` app, which returns a session JWT; the
   token + user are persisted with `expo-secure-store`. Source layout:
-  - `App.tsx` — wraps the app in `AuthProvider` and gates Login vs the signed-in
-    app (`AppTabs`, or the full-screen active workout).
+  - Entry is **`expo-router`** (`package.json` `main: expo-router/entry`); routes
+    live in `app/`. `app/_layout.tsx` mounts `AuthProvider` + the root `Stack`;
+    `app/login.tsx` is the signed-out route; `app/(app)/_layout.tsx` guards auth
+    (redirects to `/login`), mounts the app providers, and gates the full-screen
+    active workout / summary vs the tabs. (There is no `App.tsx` — the old
+    single-tree entry was removed in the router migration.)
   - `src/auth/AuthContext.tsx` — session state, restore-on-startup, sign in/out.
   - `src/auth/appleSignIn.ts` — native Apple flow → identity token.
   - `src/api/client.ts` — calls `POST /api/auth/apple` on the `web` app (base URL
@@ -169,23 +180,35 @@ over HTTP).
   `surface`/`pressed`/`disabled` style fragments). Barrel-exported from
   `src/components/ui/index.ts`. Add new reusable primitives here rather than
   re-deriving them in a screen; extend a component's props before forking a copy.
-- Navigation: a lightweight custom bottom tab bar in `src/navigation/AppTabs.tsx`
-  (no navigation library / native module — state-based screen switching) with
-  four tabs: **Workouts**, **Templates**, **Exercises** (heading "Exercises &
-  progress"), and **Me** (the account/profile tab; `ProfileScreen`). An
-  in-progress workout is shown full-screen
-  (`WorkoutScreen`) and
-  takes over the tabs until minimized or finished (`active && !minimized` in
-  `App.tsx`); minimizing keeps the workout alive and returns to the tabs, where
-  the Workouts tab offers **Resume workout**. Finishing a (non-empty) workout
-  shows a full-screen **post-workout summary** (`WorkoutSummaryScreen`, gated by
-  `summary` in `App.tsx`, dismissed via `dismissSummary()`): session stats, new
-  personal records, the trained-muscle body map, and a strength read-out. This
-  recap is **free — no Pro gate** (unlike the Me tab's always-on analytics), by
-  design. On the other tabs a floating
-  **Resume workout** bar (`src/screens/ResumeBar.tsx`, showing live elapsed time)
-  appears while a workout is minimized; the rest-timer pill takes priority over it
-  (AppTabs renders one or the other, never both).
+- Navigation: **`expo-router` file-based routing** with a **native iOS tab bar**.
+  `app/(app)/(tabs)/_layout.tsx` uses `NativeTabs` from
+  `expo-router/unstable-native-tabs` — a real `UITabBarController`, so on **iOS 26
+  it gets the system Liquid Glass** treatment for free (and falls back to a standard
+  native bar on older iOS). The native tab module is **bundled in Expo Go on SDK 54**,
+  so the real native bar — including iOS 26 Liquid Glass — renders in Expo Go on the
+  iOS simulator with **no dev build needed** (verified 2026-07; only the
+  `getImageSourceSync` custom-icon path needs a dev build, not the tab bar itself).
+  This replaced the old hand-rolled `View`/`expo-glass-effect` tab bar
+  (`src/navigation/AppTabs.tsx`, deleted), which could only *mimic* glass. **Native tabs are alpha on SDK 54** (`unstable-`); the
+  API may change. Four tabs, each a route file under `(tabs)/`: **Workouts**
+  (`index.tsx`), **Templates**, **Exercises** (heading "Exercises & progress"), and
+  **Me** (`profile.tsx`, `ProfileScreen`); SF Symbols for the icons. An in-progress
+  workout is shown full-screen (`WorkoutScreen`) and takes over — the
+  `app/(app)/_layout.tsx` gate renders it in place of the tabs' `<Slot>` while
+  `active && !minimized`; minimizing keeps the workout alive and returns to the
+  tabs, where the Workouts tab offers **Resume workout**. Finishing a (non-empty)
+  workout shows a full-screen **post-workout summary** (`WorkoutSummaryScreen`,
+  gated by `summary` in the same layout, dismissed via `dismissSummary()`): session
+  stats, new personal records, the trained-muscle body map, and a strength read-out.
+  This recap is **free — no Pro gate** (unlike the Me tab's always-on analytics), by
+  design. While a workout is minimized, `src/screens/MinimizedWorkoutBar.tsx` floats
+  the **Resume workout** bar (`ResumeBar.tsx`, live elapsed time) over the tab
+  screens (hidden on the Workouts tab at `/` via `usePathname()`); the rest-timer
+  pill (`RestPill.tsx`) takes priority (one or the other, never both). Native tabs
+  don't expose their bar height, so that overlay floats above an estimate
+  (`TAB_BAR_ESTIMATE`, tune on-device). `src/navigation/tabBar.ts`'s
+  `tabScrollClearance` is now a **no-op** — native tabs auto-inset scroll content on
+  iOS; the tab screens still spread it into `contentContainerStyle` harmlessly.
 - Workout tracking (implemented): start/minimize/finish a workout, add exercises
   from a library (built-in seed + user-created custom, each with one or more
   **muscle groups**; editable/deletable — icon buttons for progress/edit/remove),
@@ -268,7 +291,7 @@ over HTTP).
   - Rest timer: `src/workouts/RestTimerContext.tsx` (`RestTimerProvider` +
     `useRestTimer`; end-timestamp countdown, buzzes via RN `Vibration` on
     completion). The provider is mounted above the workout screen and the tab
-    shell (in `App.tsx`) so the countdown survives minimizing. UI:
+    shell (in `app/(app)/_layout.tsx`) so the countdown survives minimizing. UI:
     `src/screens/RestTimerBar.tsx` (control above the workout footer) and
     `src/screens/RestPill.tsx` (tap-to-resume pill shown on the tab screens while
     a minimized workout is resting). Auto-starts when a set is added; also manual
@@ -276,8 +299,8 @@ over HTTP).
 - Pro paywall (`src/purchases/`): `PurchaseProvider` + `usePurchases()`
   (`PurchaseContext.tsx`) expose `isPro`/`entitlement`/`trialDaysLeft`/`busy` plus
   `openPaywall()`, `startFreeTrial()`, `subscribe(plan)` and
-  `manageSubscription()`. Provider is mounted above the signed-in app in `App.tsx`
-  (under `AuthProvider`) and renders the `PaywallSheet`.
+  `manageSubscription()`. Provider is mounted above the signed-in app in
+  `app/(app)/_layout.tsx` (under `AuthProvider`) and renders the `PaywallSheet`.
   - **`isPro` comes only from the server** (`user.entitlement`, itself cached in
     SecureStore by `AuthContext`, so offline still works). There is **no local
     entitlement store** — the old simulated-StoreKit `iap.ts` and

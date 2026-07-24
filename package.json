@@ -23,7 +23,10 @@
     "@biomejs/biome": "2.5.4",
     "concurrently": "^10.0.3"
   },
+  "_comment_reactPin": "Single React across the monorepo (SDK 54's version). expo-router's dep tree resolves loose react ranges to a newer 19.x and hoists it, leaving mobile with two React copies -> 'Cannot read property useState of null'. Next 16 accepts ^19.0.0, so web is fine on 19.1.0 too. Bump alongside the Expo SDK's react.",
   "overrides": {
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
     "react-native-is-edge-to-edge": {
       "react": "19.1.0",
       "react-native": "0.81.5"
