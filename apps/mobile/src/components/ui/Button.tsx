@@ -1,4 +1,5 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { GlassView, isLiquidGlassAvailable } from "expo-glass-effect";
 import {
   Pressable,
   type StyleProp,
@@ -13,11 +14,22 @@ import { common } from "./common";
 type Variant = "primary" | "secondary" | "danger" | "dashed";
 type Size = "md" | "sm";
 
+// GlassView degrades to a background-less View off iOS 26, so gate on this and
+// keep the solid styling as the fallback.
+const GLASS = isLiquidGlassAvailable();
+
 const TEXT_COLOR: Record<Variant, string> = {
   primary: theme.colors.onAccent,
   secondary: theme.colors.text,
   danger: theme.colors.danger,
   dashed: theme.colors.accent,
+};
+
+const GLASS_TINT: Record<Variant, string | undefined> = {
+  primary: theme.colors.accent,
+  secondary: undefined,
+  danger: undefined,
+  dashed: undefined,
 };
 
 export function Button({
@@ -39,6 +51,44 @@ export function Button({
   style?: StyleProp<ViewStyle>;
   textStyle?: StyleProp<TextStyle>;
 }) {
+  const label = (
+    <>
+      {icon ? <Ionicons name={icon} size={16} color={TEXT_COLOR[variant]} /> : null}
+      <Text
+        style={[
+          styles.text,
+          size === "sm" && styles.textSm,
+          { color: TEXT_COLOR[variant] },
+          variant === "primary" && styles.textStrong,
+          textStyle,
+        ]}
+      >
+        {title}
+      </Text>
+    </>
+  );
+
+  // Glass can't be dimmed (opacity < 1 corrupts it), so disabled uses the solid path.
+  if (GLASS && !disabled) {
+    return (
+      <Pressable onPress={onPress} style={style}>
+        <GlassView
+          isInteractive
+          glassEffectStyle="regular"
+          tintColor={GLASS_TINT[variant]}
+          style={[
+            styles.base,
+            size === "sm" ? styles.glassSizeSm : styles.sizeMd,
+            variant !== "primary" && styles.glassBorder,
+            variant === "dashed" && styles.glassDashed,
+          ]}
+        >
+          {label}
+        </GlassView>
+      </Pressable>
+    );
+  }
+
   return (
     <Pressable
       disabled={disabled}
@@ -52,18 +102,7 @@ export function Button({
         style,
       ]}
     >
-      {icon ? <Ionicons name={icon} size={16} color={TEXT_COLOR[variant]} /> : null}
-      <Text
-        style={[
-          styles.text,
-          size === "sm" && styles.textSm,
-          { color: TEXT_COLOR[variant] },
-          variant === "primary" && styles.textStrong,
-          textStyle,
-        ]}
-      >
-        {title}
-      </Text>
+      {label}
     </Pressable>
   );
 }
@@ -75,6 +114,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: theme.space(2),
     borderRadius: theme.radius.md,
+    overflow: "hidden",
   },
   sizeMd: {
     paddingVertical: theme.space(4),
@@ -82,6 +122,17 @@ const styles = StyleSheet.create({
   sizeSm: {
     paddingVertical: theme.space(3),
     borderRadius: theme.radius.sm,
+  },
+  glassSizeSm: {
+    paddingVertical: theme.space(3),
+    borderRadius: theme.radius.sm,
+  },
+  glassBorder: {
+    borderColor: theme.colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  glassDashed: {
+    borderStyle: "dashed",
   },
   primary: {
     backgroundColor: theme.colors.accent,

@@ -152,6 +152,22 @@ export async function createPortalUrl(token: string): Promise<string> {
   return body.url;
 }
 
+export async function deleteAccount(token: string): Promise<void> {
+  let res: Response;
+  try {
+    res = await fetchWithTimeout("/api/auth/me", {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  } catch {
+    throw new Error(`Could not reach the user service at ${USER_API_URL}.`);
+  }
+
+  if (!res.ok && res.status !== 401) {
+    throw new Error(`Could not delete the account (${res.status}).`);
+  }
+}
+
 export async function verifyAppleLogin(identityToken: string): Promise<AuthResponse> {
   let res: Response;
   try {

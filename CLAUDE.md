@@ -1,5 +1,10 @@
 # The Workout Tracker — Monorepo
 
+PRIORITIZE ME:
+- **Comments:** don't write useless comments. Only keep a comment when it's 100%
+  necessary — i.e. it explains *why* something non-obvious is done, a real gotcha,
+  or intent the code can't convey. Never narrate *what* the code plainly does.
+
 A workout tracking app for weight / strength lifters, focused on **progressive
 overload**. Log workouts, build presets, run a rest timer, manage exercises, and
 visualize strength progress over time.

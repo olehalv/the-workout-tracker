@@ -150,3 +150,19 @@ export async function saveJSON<T>(key: string, value: T): Promise<void> {
 export function isCloudBackupAvailable(): Promise<boolean> {
   return cloudAvailable();
 }
+
+export async function wipeAllData(): Promise<void> {
+  for (const timer of pendingCloudWrites.values()) clearTimeout(timer);
+  pendingCloudWrites.clear();
+
+  const keys = Object.values(STORAGE_KEYS);
+  await AsyncStorage.multiRemove(keys).catch(() => {});
+
+  if (await cloudAvailable()) {
+    await Promise.all(
+      keys
+        .filter((key) => SYNCED_KEYS.has(key))
+        .map((key) => CloudStorage.unlink(cloudPath(key), CLOUD_SCOPE).catch(() => {})),
+    );
+  }
+}

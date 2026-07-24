@@ -316,6 +316,23 @@ function ExerciseCard({
   );
 }
 
+// Avoids float dust: 2.5 + 2.5 = 5, not 5.0000001.
+function trimNum(n: number): string {
+  return String(Math.round(n * 100) / 100);
+}
+
+function StepButton({ label, onPress }: { label: string; onPress: () => void }) {
+  return (
+    <Pressable
+      style={({ pressed }) => [styles.stepBtn, pressed && common.pressed]}
+      onPress={onPress}
+      hitSlop={4}
+    >
+      <Text style={styles.stepBtnText}>{label}</Text>
+    </Pressable>
+  );
+}
+
 // Local text state backs the fields (so partial/decimal entry works) while parsed
 // numbers flow to the store for live totals.
 function SetRow({
@@ -342,31 +359,53 @@ function SetRow({
   const repsPlaceholder = previous ? String(previous.topReps) : "0";
   const weightPlaceholder = previous ? String(toDisplayWeight(previous.topWeight, unit)) : "0";
 
+  const weightStep = unit === "kg" ? 2.5 : 5;
+
+  const stepReps = (delta: number) => {
+    const next = Math.max(0, toReps(reps) + delta);
+    setReps(next > 0 ? String(next) : "");
+    onChange({ reps: next });
+  };
+
+  const stepWeight = (delta: number) => {
+    const next = Math.max(0, toWeight(weight) + delta * weightStep);
+    setWeight(next > 0 ? trimNum(next) : "");
+    onChange({ weight: fromDisplayWeight(next, unit) });
+  };
+
   return (
     <View style={styles.setRow}>
       <Text style={[styles.setIndex, styles.colSet]}>{index}</Text>
-      <TextInput
-        style={[styles.setField, styles.colField]}
-        placeholder={repsPlaceholder}
-        placeholderTextColor={theme.colors.textMuted}
-        keyboardType="number-pad"
-        value={reps}
-        onChangeText={(t) => {
-          setReps(t);
-          onChange({ reps: toReps(t) });
-        }}
-      />
-      <TextInput
-        style={[styles.setField, styles.colField]}
-        placeholder={weightPlaceholder}
-        placeholderTextColor={theme.colors.textMuted}
-        keyboardType="decimal-pad"
-        value={weight}
-        onChangeText={(t) => {
-          setWeight(t);
-          onChange({ weight: fromDisplayWeight(toWeight(t), unit) });
-        }}
-      />
+      <View style={[styles.stepper, styles.colField]}>
+        <StepButton label="−" onPress={() => stepReps(-1)} />
+        <TextInput
+          style={styles.stepperInput}
+          placeholder={repsPlaceholder}
+          placeholderTextColor={theme.colors.textMuted}
+          keyboardType="number-pad"
+          value={reps}
+          onChangeText={(t) => {
+            setReps(t);
+            onChange({ reps: toReps(t) });
+          }}
+        />
+        <StepButton label="+" onPress={() => stepReps(1)} />
+      </View>
+      <View style={[styles.stepper, styles.colField]}>
+        <StepButton label="−" onPress={() => stepWeight(-1)} />
+        <TextInput
+          style={styles.stepperInput}
+          placeholder={weightPlaceholder}
+          placeholderTextColor={theme.colors.textMuted}
+          keyboardType="decimal-pad"
+          value={weight}
+          onChangeText={(t) => {
+            setWeight(t);
+            onChange({ weight: fromDisplayWeight(toWeight(t), unit) });
+          }}
+        />
+        <StepButton label="+" onPress={() => stepWeight(1)} />
+      </View>
       <Pressable style={styles.colRemove} onPress={onRemove} hitSlop={6}>
         <Text style={styles.removeX}>×</Text>
       </Pressable>
@@ -515,15 +554,34 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     fontSize: 14,
   },
-  setField: {
-    color: theme.colors.text,
+  stepper: {
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: theme.colors.background,
     borderColor: theme.colors.border,
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: theme.radius.sm,
+    overflow: "hidden",
+  },
+  stepperInput: {
+    flex: 1,
+    color: theme.colors.text,
+    textAlign: "center",
     paddingVertical: theme.space(2),
-    paddingHorizontal: theme.space(3),
+    paddingHorizontal: theme.space(1),
     fontSize: 16,
+  },
+  stepBtn: {
+    paddingHorizontal: theme.space(3),
+    paddingVertical: theme.space(2),
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  stepBtnText: {
+    color: theme.colors.accent,
+    fontSize: 20,
+    fontWeight: "600",
+    lineHeight: 22,
   },
   removeX: {
     color: theme.colors.textMuted,

@@ -9,7 +9,14 @@ import {
   useState,
 } from "react";
 import { AppState } from "react-native";
-import { type AuthUser, fetchMe, normalizeUser, verifyAppleLogin } from "../api/client";
+import {
+  type AuthUser,
+  deleteAccount as deleteAccountApi,
+  fetchMe,
+  normalizeUser,
+  verifyAppleLogin,
+} from "../api/client";
+import { wipeAllData } from "../storage/storage";
 import { AppleSignInCanceledError, requestAppleIdentityToken } from "./appleSignIn";
 
 const TOKEN_KEY = "session_token";
@@ -22,6 +29,7 @@ interface AuthContextValue {
   isSigningIn: boolean;
   signInWithApple: () => Promise<void>;
   signOut: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
   // Re-fetch the user + entitlement; the billing flow polls this after checkout.
   refresh: () => Promise<AuthUser | null>;
 }
@@ -42,6 +50,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(null);
     setUser(null);
   }, []);
+
+  const deleteAccount = useCallback(async () => {
+    if (token) await deleteAccountApi(token);
+    await wipeAllData();
+    await Promise.all([
+      SecureStore.deleteItemAsync(TOKEN_KEY),
+      SecureStore.deleteItemAsync(USER_KEY),
+    ]);
+    setToken(null);
+    setUser(null);
+  }, [token]);
 
   // On an expired/rejected token we sign out; on a network error we keep the cached user.
   const refreshUser = useCallback(
@@ -125,8 +144,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo<AuthContextValue>(
-    () => ({ user, token, isRestoring, isSigningIn, signInWithApple, signOut, refresh }),
-    [user, token, isRestoring, isSigningIn, signInWithApple, signOut, refresh],
+    () => ({
+      user,
+      token,
+      isRestoring,
+      isSigningIn,
+      signInWithApple,
+      signOut,
+      deleteAccount,
+      refresh,
+    }),
+    [user, token, isRestoring, isSigningIn, signInWithApple, signOut, deleteAccount, refresh],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

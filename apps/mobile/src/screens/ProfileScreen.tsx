@@ -1,6 +1,16 @@
+import Ionicons from "@expo/vector-icons/Ionicons";
 import Constants, { ExecutionEnvironment } from "expo-constants";
 import { useEffect, useMemo, useState } from "react";
-import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import {
+  Alert,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { useAuth } from "../auth/AuthContext";
 import { BodyMap, heatRamp } from "../components/BodyMap";
 import { ProGate } from "../components/ProGate";
@@ -40,12 +50,40 @@ type WindowKey = (typeof WINDOWS)[number]["key"];
 const LEGEND = heatRamp(6);
 
 export function ProfileScreen() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, deleteAccount } = useAuth();
   const { workouts, library, unit, setUnit, bodyweight, setBodyweight, sex, setSex } =
     useWorkouts();
   const { isPro, entitlement, trialDaysLeft, busy, openPaywall, manageSubscription } =
     usePurchases();
   const [muscleWindow, setMuscleWindow] = useState<WindowKey>("week");
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const confirmDeleteAccount = () => {
+    Alert.alert(
+      "Delete account?",
+      "This permanently deletes your account and all workout data on this device and in iCloud. This can't be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              await deleteAccount();
+            } catch (err) {
+              setDeleting(false);
+              Alert.alert(
+                "Couldn't delete account",
+                err instanceof Error ? err.message : "Please try again.",
+              );
+            }
+          },
+        },
+      ],
+    );
+  };
 
   // iCloud backup needs a native build; the module isn't present in Expo Go.
   const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
@@ -316,6 +354,34 @@ export function ProfileScreen() {
       )}
 
       <Button title="Sign out" variant="danger" onPress={signOut} />
+
+      <Pressable
+        style={({ pressed }) => [styles.advancedHeader, pressed && common.pressed]}
+        onPress={() => setAdvancedOpen((open) => !open)}
+        hitSlop={6}
+      >
+        <Text style={styles.advancedTitle}>Advanced</Text>
+        <Ionicons
+          name={advancedOpen ? "chevron-up" : "chevron-down"}
+          size={18}
+          color={theme.colors.textMuted}
+        />
+      </Pressable>
+
+      {advancedOpen ? (
+        <View style={styles.advancedBody}>
+          <Text style={styles.advancedHint}>
+            Permanently delete your account and every workout, exercise and template — on this
+            device and in iCloud. This can't be undone.
+          </Text>
+          <Button
+            title={deleting ? "Deleting…" : "Delete account and all data"}
+            variant="danger"
+            onPress={confirmDeleteAccount}
+            disabled={deleting}
+          />
+        </View>
+      ) : null}
     </ScrollView>
   );
 }
@@ -673,5 +739,30 @@ const styles = StyleSheet.create({
     color: theme.colors.onAccent,
     fontSize: 15,
     fontWeight: "700",
+  },
+  advancedHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: theme.space(6),
+    paddingTop: theme.space(4),
+    borderTopColor: theme.colors.border,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  advancedTitle: {
+    color: theme.colors.textMuted,
+    fontSize: 13,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
+  advancedBody: {
+    marginTop: theme.space(4),
+    gap: theme.space(3),
+  },
+  advancedHint: {
+    color: theme.colors.textMuted,
+    fontSize: 13,
+    lineHeight: 18,
   },
 });
