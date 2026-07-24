@@ -1,16 +1,13 @@
 import { useMemo, useState } from "react";
-import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { FlatList, Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { common, Input, ScreenHeader } from "../components/ui";
 import { theme } from "../theme";
 import { type LibraryExercise, muscleLabel } from "../workouts/types";
 import { useWorkouts } from "../workouts/WorkoutContext";
 import { ExerciseFormModal } from "./ExerciseFormModal";
 import { ExerciseProgressModal } from "./ExerciseProgressModal";
 
-/**
- * Full-screen picker for adding an exercise to the active workout. Filters the
- * library as you type; if nothing matches, offers to create the typed name via
- * the exercise form (name + muscle group) then "Create & add".
- */
+// Picker for adding an exercise to the active workout; offers "create" when nothing matches.
 export function ExercisePickerModal({
   visible,
   onClose,
@@ -40,17 +37,16 @@ export function ExercisePickerModal({
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose} transparent={false}>
       <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Add exercise</Text>
-          <Pressable onPress={onClose} hitSlop={8}>
-            <Text style={styles.cancel}>Cancel</Text>
-          </Pressable>
-        </View>
+        <ScreenHeader
+          title="Add exercise"
+          titleSize={22}
+          action={{ label: "Cancel", onPress: onClose }}
+          style={styles.header}
+        />
 
-        <TextInput
+        <Input
           style={styles.search}
           placeholder="Search or create an exercise"
-          placeholderTextColor={theme.colors.textMuted}
           value={query}
           onChangeText={setQuery}
           autoFocus
@@ -66,7 +62,7 @@ export function ExercisePickerModal({
           ListHeaderComponent={
             q.length > 0 && !exactMatch ? (
               <Pressable
-                style={({ pressed }) => [styles.createRow, pressed && styles.pressed]}
+                style={({ pressed }) => [styles.createRow, pressed && common.pressed]}
                 onPress={() => setCreating(true)}
               >
                 <Text style={styles.createText}>Create “{query.trim()}”</Text>
@@ -75,7 +71,7 @@ export function ExercisePickerModal({
             ) : null
           }
           renderItem={({ item }) => (
-            <View style={styles.row}>
+            <View style={[common.surface, styles.row]}>
               <Pressable style={styles.rowMain} onPress={() => pick(item)}>
                 <Text style={styles.rowName}>{item.name}</Text>
                 <Text style={styles.rowCategory}>
@@ -84,7 +80,7 @@ export function ExercisePickerModal({
                 </Text>
               </Pressable>
               <Pressable
-                style={({ pressed }) => [styles.historyBtn, pressed && styles.pressed]}
+                style={({ pressed }) => [styles.historyBtn, pressed && common.pressed]}
                 onPress={() => setHistory(item)}
                 hitSlop={6}
               >
@@ -121,30 +117,9 @@ const styles = StyleSheet.create({
     paddingTop: theme.space(14),
   },
   header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
     marginBottom: theme.space(4),
   },
-  title: {
-    color: theme.colors.text,
-    fontSize: 22,
-    fontWeight: "700",
-  },
-  cancel: {
-    color: theme.colors.accent,
-    fontSize: 16,
-    fontWeight: "600",
-  },
   search: {
-    color: theme.colors.text,
-    backgroundColor: theme.colors.surface,
-    borderColor: theme.colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: theme.radius.md,
-    paddingHorizontal: theme.space(4),
-    paddingVertical: theme.space(3),
-    fontSize: 16,
     marginBottom: theme.space(3),
   },
   listContent: {
@@ -155,10 +130,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: theme.space(3),
-    backgroundColor: theme.colors.surface,
-    borderColor: theme.colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: theme.radius.md,
     paddingHorizontal: theme.space(4),
     paddingVertical: theme.space(3),
   },
@@ -216,8 +187,5 @@ const styles = StyleSheet.create({
     fontSize: 15,
     textAlign: "center",
     marginTop: theme.space(8),
-  },
-  pressed: {
-    opacity: 0.6,
   },
 });

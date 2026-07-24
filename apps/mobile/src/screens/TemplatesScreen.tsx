@@ -1,6 +1,6 @@
-import Ionicons from "@expo/vector-icons/Ionicons";
 import { useState } from "react";
-import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { FlatList, StyleSheet, Text, View } from "react-native";
+import { Button, Card, ScreenHeader } from "../components/ui";
 import { tabScrollClearance } from "../navigation/tabBar";
 import { theme } from "../theme";
 import type { WorkoutPreset } from "../workouts/types";
@@ -11,7 +11,6 @@ function totalPresetSets(p: WorkoutPreset): number {
   return p.exercises.reduce((n, e) => n + e.sets, 0);
 }
 
-/** "Templates" tab: reusable workout presets — start one, or create/edit/delete. */
 export function TemplatesScreen() {
   const { presets, active, startWorkoutFromPreset } = useWorkouts();
   const [editing, setEditing] = useState<WorkoutPreset | null>(null);
@@ -19,17 +18,14 @@ export function TemplatesScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.eyebrow}>Reusable</Text>
-        <Text style={styles.title}>Templates</Text>
-      </View>
+      <ScreenHeader eyebrow="Reusable" title="Templates" style={styles.header} />
 
-      <Pressable
-        style={({ pressed }) => [styles.addBtn, pressed && styles.pressed]}
+      <Button
+        title="+ New template"
+        variant="dashed"
         onPress={() => setCreating(true)}
-      >
-        <Text style={styles.addBtnText}>+ New template</Text>
-      </Pressable>
+        style={styles.addBtn}
+      />
 
       {active ? (
         <Text style={styles.banner}>Finish your current workout to start a template.</Text>
@@ -49,7 +45,7 @@ export function TemplatesScreen() {
           </Text>
         }
         renderItem={({ item }) => (
-          <View style={styles.card}>
+          <Card>
             <Text style={styles.cardName}>{item.name}</Text>
             <Text style={styles.cardMeta}>
               {item.exercises.length} exercise{item.exercises.length === 1 ? "" : "s"} ·{" "}
@@ -59,27 +55,24 @@ export function TemplatesScreen() {
               {item.exercises.map((e) => e.name).join(" · ")}
             </Text>
             <View style={styles.cardActions}>
-              <Pressable
+              <Button
+                title="Start"
+                icon="play"
+                size="sm"
                 disabled={active !== null}
-                style={({ pressed }) => [
-                  styles.startBtn,
-                  active !== null && styles.disabled,
-                  pressed && styles.pressed,
-                ]}
                 onPress={() => startWorkoutFromPreset(item)}
-              >
-                <Ionicons name="play" size={16} color="#FFFFFF" />
-                <Text style={styles.startText}>Start</Text>
-              </Pressable>
-              <Pressable
-                style={({ pressed }) => [styles.editBtn, pressed && styles.pressed]}
+                style={styles.action}
+              />
+              <Button
+                title="Edit"
+                icon="create-outline"
+                variant="secondary"
+                size="sm"
                 onPress={() => setEditing(item)}
-              >
-                <Ionicons name="create-outline" size={16} color={theme.colors.text} />
-                <Text style={styles.editText}>Edit</Text>
-              </Pressable>
+                style={styles.action}
+              />
             </View>
-          </View>
+          </Card>
         )}
       />
 
@@ -106,33 +99,8 @@ const styles = StyleSheet.create({
   header: {
     marginBottom: theme.space(6),
   },
-  eyebrow: {
-    color: theme.colors.accent,
-    fontSize: 13,
-    fontWeight: "600",
-    textTransform: "uppercase",
-    letterSpacing: 1,
-  },
-  title: {
-    color: theme.colors.text,
-    fontSize: 30,
-    fontWeight: "700",
-    marginTop: theme.space(2),
-  },
   addBtn: {
-    alignItems: "center",
-    paddingVertical: theme.space(4),
-    borderRadius: theme.radius.md,
-    backgroundColor: theme.colors.surface,
-    borderColor: theme.colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderStyle: "dashed",
     marginBottom: theme.space(4),
-  },
-  addBtnText: {
-    color: theme.colors.accent,
-    fontSize: 15,
-    fontWeight: "600",
   },
   banner: {
     color: theme.colors.textMuted,
@@ -157,13 +125,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 22,
   },
-  card: {
-    backgroundColor: theme.colors.surface,
-    borderColor: theme.colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: theme.radius.md,
-    padding: theme.space(4),
-  },
   cardName: {
     color: theme.colors.text,
     fontSize: 17,
@@ -184,41 +145,7 @@ const styles = StyleSheet.create({
     gap: theme.space(3),
     marginTop: theme.space(4),
   },
-  startBtn: {
+  action: {
     flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: theme.space(2),
-    paddingVertical: theme.space(3),
-    borderRadius: theme.radius.sm,
-    backgroundColor: theme.colors.accent,
-  },
-  startText: {
-    color: "#FFFFFF",
-    fontSize: 15,
-    fontWeight: "700",
-  },
-  editBtn: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: theme.space(2),
-    paddingVertical: theme.space(3),
-    borderRadius: theme.radius.sm,
-    borderColor: theme.colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-  },
-  editText: {
-    color: theme.colors.text,
-    fontSize: 15,
-    fontWeight: "600",
-  },
-  disabled: {
-    opacity: 0.4,
-  },
-  pressed: {
-    opacity: 0.6,
   },
 });

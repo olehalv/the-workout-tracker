@@ -1,18 +1,32 @@
-import { useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import Constants, { ExecutionEnvironment } from "expo-constants";
+import { useEffect, useMemo, useState } from "react";
+import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useAuth } from "../auth/AuthContext";
 import { BodyMap, heatRamp } from "../components/BodyMap";
 import { ProGate } from "../components/ProGate";
+import {
+  Button,
+  Card,
+  common,
+  ScreenHeader,
+  SectionLabel,
+  Segmented,
+  Stat,
+} from "../components/ui";
 import { tabScrollClearance } from "../navigation/tabBar";
 import { usePurchases } from "../purchases/PurchaseContext";
 import { PRO_TRIAL_DAYS } from "../purchases/plans";
+import { isCloudBackupAvailable } from "../storage/storage";
 import { theme } from "../theme";
 import { muscleActivity, startOfThisWeek } from "../workouts/muscleStats";
 import { type Sex, strengthProfile } from "../workouts/strengthStandards";
 import { fmtWeight, fromDisplayWeight, toDisplayWeight } from "../workouts/units";
 import { useWorkouts } from "../workouts/WorkoutContext";
 
-const UNITS = ["kg", "lbs"] as const;
+const UNITS = [
+  { key: "kg", label: "KG" },
+  { key: "lbs", label: "LBS" },
+] as const;
 const SEXES: Array<{ key: Sex; label: string }> = [
   { key: "male", label: "Male" },
   { key: "female", label: "Female" },
@@ -25,7 +39,6 @@ type WindowKey = (typeof WINDOWS)[number]["key"];
 
 const LEGEND = heatRamp(6);
 
-/** "Me" tab: account info, plan, unit preference, strength ratings, muscle map, sign out. */
 export function ProfileScreen() {
   const { user, signOut } = useAuth();
   const { workouts, library, unit, setUnit, bodyweight, setBodyweight, sex, setSex } =
@@ -33,6 +46,19 @@ export function ProfileScreen() {
   const { isPro, entitlement, trialDaysLeft, busy, openPaywall, manageSubscription } =
     usePurchases();
   const [muscleWindow, setMuscleWindow] = useState<WindowKey>("week");
+
+  // iCloud backup needs a native build; the module isn't present in Expo Go.
+  const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+  const [cloudAvailable, setCloudAvailable] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    isCloudBackupAvailable().then((available) => {
+      if (!cancelled) setCloudAvailable(available);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const activity = useMemo(
     () => muscleActivity(workouts, library, muscleWindow === "week" ? startOfThisWeek() : null),
@@ -51,18 +77,21 @@ export function ProfileScreen() {
       style={styles.container}
       contentContainerStyle={[styles.content, tabScrollClearance]}
     >
-      <View style={styles.header}>
-        <Text style={styles.eyebrow}>Account</Text>
-        <Text style={styles.title}>{user?.email ?? "Apple account"}</Text>
+      <ScreenHeader
+        eyebrow="Account"
+        title={user?.email ?? "Apple account"}
+        titleSize={22}
+        style={styles.header}
+      >
         <View style={[styles.planBadge, isPro ? styles.planPro : styles.planFree]}>
           <Text style={[styles.planText, isPro && styles.planTextPro]}>
             {isPro ? "Pro plan" : "Free plan"}
           </Text>
         </View>
-      </View>
+      </ScreenHeader>
 
-      <Text style={styles.sectionLabel}>Strength ratings</Text>
-      <ProGate locked={!isPro} style={styles.strengthCard}>
+      <SectionLabel>Strength ratings</SectionLabel>
+      <ProGate locked={!isPro} style={[common.surface, styles.padCard, styles.cardGap]}>
         <View style={styles.bwRow}>
           <View style={styles.bwField}>
             <Text style={styles.fieldLabel}>Bodyweight</Text>
@@ -78,20 +107,15 @@ export function ProfileScreen() {
           </View>
           <View style={styles.bwField}>
             <Text style={styles.fieldLabel}>Sex</Text>
-            <View style={styles.sexSegment}>
-              {SEXES.map((s) => {
-                const active = sex === s.key;
-                return (
-                  <Pressable
-                    key={s.key}
-                    style={[styles.sexBtn, active && styles.sexBtnActive]}
-                    onPress={() => setSex(s.key)}
-                  >
-                    <Text style={[styles.sexText, active && styles.sexTextActive]}>{s.label}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
+            <Segmented
+              options={SEXES}
+              value={sex}
+              onChange={setSex}
+              variant="pill"
+              stretch
+              tone="background"
+              style={styles.sexSegment}
+            />
           </View>
         </View>
 
@@ -148,26 +172,16 @@ export function ProfileScreen() {
       </ProGate>
 
       <View style={styles.muscleHeader}>
-        <Text style={styles.sectionLabel}>Muscle activity</Text>
-        <View style={styles.windowSegment}>
-          {WINDOWS.map((w) => {
-            const active = muscleWindow === w.key;
-            return (
-              <Pressable
-                key={w.key}
-                style={[styles.windowBtn, active && styles.windowBtnActive]}
-                onPress={() => setMuscleWindow(w.key)}
-              >
-                <Text style={[styles.windowText, active && styles.windowTextActive]}>
-                  {w.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
+        <SectionLabel style={styles.noMargin}>Muscle activity</SectionLabel>
+        <Segmented
+          options={WINDOWS}
+          value={muscleWindow}
+          onChange={setMuscleWindow}
+          variant="pill"
+        />
       </View>
 
-      <ProGate locked={!isPro} style={styles.muscleCard}>
+      <ProGate locked={!isPro} style={[common.surface, styles.padCard, styles.cardGap]}>
         <BodyMap activity={activity} sex={sex ?? "male"} />
         {activity.totalSets === 0 ? (
           <Text style={styles.muscleEmpty}>
@@ -204,14 +218,16 @@ export function ProfileScreen() {
       </ProGate>
 
       <View style={styles.statsRow}>
-        <View style={styles.stat}>
-          <Text style={styles.statValue}>{workouts.length}</Text>
-          <Text style={styles.statLabel}>Workouts logged</Text>
-        </View>
+        <Stat
+          style={styles.statTile}
+          valueSize={24}
+          value={`${workouts.length}`}
+          label="Workouts logged"
+        />
       </View>
 
       {isPro ? (
-        <View style={styles.proCard}>
+        <Card style={styles.cardGap}>
           <View style={styles.proHeader}>
             <Text style={styles.proTitle}>Pro unlocked</Text>
             {entitlement.source === "trial" ? (
@@ -231,24 +247,24 @@ export function ProfileScreen() {
               upgrade instead of a billing portal that has nothing in it. */}
           {entitlement.source === "trial" ? (
             <Pressable
-              style={({ pressed }) => [styles.manageBtn, pressed && styles.pressed]}
+              style={({ pressed }) => [styles.manageBtn, pressed && common.pressed]}
               onPress={openPaywall}
             >
               <Text style={styles.manageText}>Subscribe</Text>
             </Pressable>
           ) : entitlement.canManageBilling ? (
             <Pressable
-              style={({ pressed }) => [styles.manageBtn, pressed && styles.pressed]}
+              style={({ pressed }) => [styles.manageBtn, pressed && common.pressed]}
               onPress={manageSubscription}
               disabled={busy}
             >
               <Text style={styles.manageText}>Manage subscription</Text>
             </Pressable>
           ) : null}
-        </View>
+        </Card>
       ) : (
         <Pressable
-          style={({ pressed }) => [styles.goPro, pressed && styles.pressed]}
+          style={({ pressed }) => [styles.goPro, pressed && common.pressed]}
           onPress={openPaywall}
         >
           <Text style={styles.goProTitle}>Unlock everything with Pro</Text>
@@ -265,46 +281,52 @@ export function ProfileScreen() {
         </Pressable>
       )}
 
-      <Text style={styles.sectionLabel}>Units</Text>
-      <View style={styles.segment}>
-        {UNITS.map((u) => {
-          const active = unit === u;
-          return (
-            <Pressable
-              key={u}
-              style={[styles.segmentBtn, active && styles.segmentBtnActive]}
-              onPress={() => setUnit(u)}
-            >
-              <Text style={[styles.segmentText, active && styles.segmentTextActive]}>
-                {u.toUpperCase()}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
+      <SectionLabel>Units</SectionLabel>
+      <Segmented options={UNITS} value={unit} onChange={setUnit} style={styles.unitSegment} />
 
-      <Pressable
-        style={({ pressed }) => [styles.signOut, pressed && styles.pressed]}
-        onPress={signOut}
-      >
-        <Text style={styles.signOutText}>Sign out</Text>
-      </Pressable>
+      {Platform.OS === "ios" && (
+        <>
+          <SectionLabel>Backup</SectionLabel>
+          <Card padding={5} style={styles.backupCard}>
+            <View style={styles.backupRow}>
+              <View
+                style={[
+                  styles.backupDot,
+                  { backgroundColor: cloudAvailable ? theme.colors.accent : theme.colors.border },
+                ]}
+              />
+              <Text style={styles.backupStatus}>
+                {isExpoGo
+                  ? "iCloud backup needs a dev build"
+                  : cloudAvailable
+                    ? "iCloud backup on"
+                    : "iCloud backup off"}
+              </Text>
+            </View>
+            <Text style={styles.backupHint}>
+              {isExpoGo
+                ? "iCloud isn't available in Expo Go. Run a development build to enable backup — your data is still saved on this device."
+                : cloudAvailable
+                  ? "Your workouts, exercises and templates are backed up to your iCloud, so they restore automatically on a new phone."
+                  : "Sign in to iCloud in Settings to back up your data and restore it on a new phone."}
+            </Text>
+          </Card>
+        </>
+      )}
+
+      <Button title="Sign out" variant="danger" onPress={signOut} />
     </ScrollView>
   );
 }
 
-/**
- * Bodyweight entry. Seeds its text from the stored kg value converted to the
- * active unit; remounted (via `key={unit}`) when the unit changes so the shown
- * number always matches the unit. Empty input clears the stored bodyweight.
- */
+// Remounted via key={unit} on unit change so the shown number matches the unit.
 function BodyweightInput({
   bodyweightKg,
   unit,
   onChangeKg,
 }: {
   bodyweightKg: number | null;
-  unit: (typeof UNITS)[number];
+  unit: (typeof UNITS)[number]["key"];
   onChangeKg: (kg: number | null) => void;
 }) {
   const [text, setText] = useState(
@@ -339,60 +361,41 @@ const styles = StyleSheet.create({
   header: {
     marginBottom: theme.space(6),
   },
-  eyebrow: {
-    color: theme.colors.accent,
-    fontSize: 13,
-    fontWeight: "600",
-    textTransform: "uppercase",
-    letterSpacing: 1,
+  padCard: {
+    padding: theme.space(5),
   },
-  title: {
-    color: theme.colors.text,
-    fontSize: 22,
-    fontWeight: "700",
-    marginTop: theme.space(2),
+  cardGap: {
+    marginBottom: theme.space(4),
   },
-  sectionLabel: {
-    color: theme.colors.textMuted,
-    fontSize: 13,
-    fontWeight: "600",
-    textTransform: "uppercase",
-    letterSpacing: 1,
-    marginBottom: theme.space(3),
+  noMargin: {
+    marginBottom: 0,
   },
-  segment: {
-    flexDirection: "row",
-    gap: theme.space(2),
+  unitSegment: {
     marginBottom: theme.space(5),
   },
-  segmentBtn: {
-    flex: 1,
+  backupCard: {
+    marginBottom: theme.space(5),
+  },
+  backupRow: {
+    flexDirection: "row",
     alignItems: "center",
-    paddingVertical: theme.space(3),
-    borderRadius: theme.radius.md,
-    borderColor: theme.colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    backgroundColor: theme.colors.surface,
+    gap: theme.space(2),
+    marginBottom: theme.space(2),
   },
-  segmentBtnActive: {
-    backgroundColor: theme.colors.accent,
-    borderColor: theme.colors.accent,
+  backupDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
-  segmentText: {
+  backupStatus: {
     color: theme.colors.text,
     fontSize: 15,
-    fontWeight: "700",
+    fontWeight: "600",
   },
-  segmentTextActive: {
-    color: "#FFFFFF",
-  },
-  strengthCard: {
-    backgroundColor: theme.colors.surface,
-    borderColor: theme.colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: theme.radius.md,
-    padding: theme.space(5),
-    marginBottom: theme.space(4),
+  backupHint: {
+    color: theme.colors.textMuted,
+    fontSize: 13,
+    lineHeight: 18,
   },
   bwRow: {
     flexDirection: "row",
@@ -432,31 +435,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   sexSegment: {
-    flexDirection: "row",
-    gap: theme.space(1),
-    backgroundColor: theme.colors.background,
-    borderColor: theme.colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: theme.radius.sm,
-    padding: 2,
     height: 40,
-  },
-  sexBtn: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: theme.radius.sm - 2,
-  },
-  sexBtnActive: {
-    backgroundColor: theme.colors.accent,
-  },
-  sexText: {
-    color: theme.colors.textMuted,
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  sexTextActive: {
-    color: "#FFFFFF",
   },
   strengthHint: {
     color: theme.colors.textMuted,
@@ -555,46 +534,13 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   planTextPro: {
-    color: "#FFFFFF",
+    color: theme.colors.onAccent,
   },
   muscleHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     marginBottom: theme.space(3),
-  },
-  windowSegment: {
-    flexDirection: "row",
-    gap: theme.space(1),
-    backgroundColor: theme.colors.surface,
-    borderColor: theme.colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: theme.radius.md,
-    padding: 2,
-  },
-  windowBtn: {
-    paddingHorizontal: theme.space(3),
-    paddingVertical: theme.space(1),
-    borderRadius: theme.radius.sm,
-  },
-  windowBtnActive: {
-    backgroundColor: theme.colors.accent,
-  },
-  windowText: {
-    color: theme.colors.textMuted,
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  windowTextActive: {
-    color: "#FFFFFF",
-  },
-  muscleCard: {
-    backgroundColor: theme.colors.surface,
-    borderColor: theme.colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: theme.radius.md,
-    padding: theme.space(5),
-    marginBottom: theme.space(4),
   },
   muscleEmpty: {
     color: theme.colors.textMuted,
@@ -662,32 +608,8 @@ const styles = StyleSheet.create({
     gap: theme.space(3),
     marginBottom: theme.space(4),
   },
-  stat: {
+  statTile: {
     flex: 1,
-    backgroundColor: theme.colors.surface,
-    borderColor: theme.colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: theme.radius.md,
-    paddingVertical: theme.space(4),
-    paddingHorizontal: theme.space(4),
-  },
-  statValue: {
-    color: theme.colors.text,
-    fontSize: 24,
-    fontWeight: "700",
-  },
-  statLabel: {
-    color: theme.colors.textMuted,
-    fontSize: 13,
-    marginTop: theme.space(1),
-  },
-  proCard: {
-    backgroundColor: theme.colors.surface,
-    borderColor: theme.colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: theme.radius.md,
-    padding: theme.space(4),
-    marginBottom: theme.space(4),
   },
   proHeader: {
     flexDirection: "row",
@@ -747,23 +669,8 @@ const styles = StyleSheet.create({
     paddingVertical: theme.space(3),
   },
   goProCtaText: {
-    color: "#FFFFFF",
+    color: theme.colors.onAccent,
     fontSize: 15,
     fontWeight: "700",
-  },
-  signOut: {
-    borderColor: theme.colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: theme.radius.md,
-    paddingVertical: theme.space(4),
-    alignItems: "center",
-  },
-  signOutText: {
-    color: theme.colors.danger,
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  pressed: {
-    opacity: 0.6,
   },
 });

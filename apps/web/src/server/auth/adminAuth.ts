@@ -1,6 +1,5 @@
-// Server-only: password gate for the /admin dashboard. Never import from a
-// Client Component. There is no admin user in Postgres — this is a single shared
-// password (ADMIN_PASSWORD) that lets an operator into the dashboard.
+// Server-only password gate for /admin — a single shared password (ADMIN_PASSWORD),
+// no admin user in Postgres. Never import from a Client Component.
 
 import crypto from "node:crypto";
 import { cookies } from "next/headers";
@@ -11,11 +10,8 @@ export const ADMIN_COOKIE = "admin_session";
 // 30 days, matching the session-cookie lifetime elsewhere.
 const COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
 
-/**
- * The value stored in the admin cookie: an HMAC of the password keyed by the
- * session secret, so the raw password never sits in a cookie and rotating either
- * ADMIN_PASSWORD or SESSION_JWT_SECRET invalidates every existing session.
- */
+// HMAC of the password keyed by the session secret, so the raw password never
+// sits in a cookie and rotating either value invalidates existing sessions.
 function adminToken(): string {
   return crypto
     .createHmac("sha256", config.jwtSecret)
@@ -23,7 +19,6 @@ function adminToken(): string {
     .digest("hex");
 }
 
-/** Whether an admin password is configured at all. If not, /admin denies access. */
 export function adminConfigured(): boolean {
   return config.adminPassword.length > 0;
 }
@@ -35,7 +30,6 @@ function safeEqual(a: string, b: string): boolean {
   return crypto.timingSafeEqual(ab, bb);
 }
 
-/** True when the current request carries a valid admin session cookie. */
 export async function isAdminAuthed(): Promise<boolean> {
   if (!adminConfigured()) return false;
   const cookie = (await cookies()).get(ADMIN_COOKIE)?.value;
@@ -43,13 +37,11 @@ export async function isAdminAuthed(): Promise<boolean> {
   return safeEqual(cookie, adminToken());
 }
 
-/** Constant-time check of a submitted password against ADMIN_PASSWORD. */
 export function verifyAdminPassword(password: string): boolean {
   if (!adminConfigured()) return false;
   return safeEqual(password, config.adminPassword);
 }
 
-/** Sets the admin session cookie (call from a server action / route handler). */
 export async function setAdminCookie(): Promise<void> {
   (await cookies()).set(ADMIN_COOKIE, adminToken(), {
     httpOnly: true,
@@ -60,7 +52,6 @@ export async function setAdminCookie(): Promise<void> {
   });
 }
 
-/** Clears the admin session cookie. */
 export async function clearAdminCookie(): Promise<void> {
   (await cookies()).delete(ADMIN_COOKIE);
 }

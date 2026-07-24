@@ -1,7 +1,5 @@
-// Server-only data access for the /admin dashboard. Now that the user registry
-// lives in this same app, the dashboard talks to Postgres directly (via the
-// Drizzle layer in src/server) instead of calling a separate service over HTTP.
-// These functions must only be imported from Server Components / server actions.
+// Server-only data access for /admin (talks to Postgres directly via src/server).
+// Only import from Server Components / server actions.
 
 import {
   deleteUser as dbDeleteUser,

@@ -9,35 +9,23 @@ import {
 } from "react";
 import { Vibration } from "react-native";
 
-/** Default rest length (seconds) and the ± adjustment step. */
 export const DEFAULT_REST = 90;
 export const REST_STEP = 15;
 
 export interface RestTimer {
-  /** True while a rest is counting down. */
   running: boolean;
-  /** Whole seconds left in the current rest. */
   remaining: number;
-  /** Configured length (seconds) for the next rest. */
   duration: number;
-  /** Start (or restart) a rest for `seconds`, defaulting to `duration`. */
   start: (seconds?: number) => void;
-  /** End the current rest immediately. */
   skip: () => void;
-  /** Extend/shorten the running rest by `delta` seconds. */
   addTime: (delta: number) => void;
-  /** Set the length used for the next rest (when idle). */
   setDuration: (seconds: number) => void;
 }
 
 const RestTimerContext = createContext<RestTimer | null>(null);
 
-/**
- * Rest countdown driven by an end-timestamp (robust to timer drift). Buzzes once
- * when a rest completes. Lives above the workout screen and the tab shell, so the
- * countdown keeps running when the workout is minimized and is still there on
- * resume.
- */
+// Countdown driven by an end-timestamp (robust to timer drift); buzzes once on
+// completion. Mounted above the workout screen and tab shell so it survives minimize.
 export function RestTimerProvider({ children }: { children: ReactNode }) {
   const [duration, setDurationState] = useState(DEFAULT_REST);
   const [endsAt, setEndsAt] = useState<number | null>(null);

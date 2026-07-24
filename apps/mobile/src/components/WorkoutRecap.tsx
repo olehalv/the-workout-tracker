@@ -7,14 +7,11 @@ import type { Workout } from "../workouts/types";
 import { fmtWeight } from "../workouts/units";
 import { useWorkouts } from "../workouts/WorkoutContext";
 import { BodyMap, heatRamp } from "./BodyMap";
+import { Card, SectionLabel } from "./ui";
 
 const LEGEND = heatRamp(6);
 
-/**
- * The muscles a single workout trained: the same body map as the Me tab, tinted
- * by this workout's sets-per-group, plus a legend and top-trained list. Free —
- * no Pro gate (used in the post-workout summary and finished-workout detail).
- */
+// One workout's body map + top-trained list. Intentionally free — no Pro gate.
 export function MusclesTrainedCard({ workout }: { workout: Workout }) {
   const { library, sex } = useWorkouts();
   const activity = useMemo(() => muscleActivity([workout], library, null), [workout, library]);
@@ -22,8 +19,8 @@ export function MusclesTrainedCard({ workout }: { workout: Workout }) {
 
   return (
     <>
-      <Text style={styles.sectionLabel}>Muscles trained</Text>
-      <View style={styles.card}>
+      <SectionLabel>Muscles trained</SectionLabel>
+      <Card padding={5} style={styles.card}>
         <BodyMap activity={activity} sex={sex ?? "male"} />
         <View style={styles.legend}>
           <Text style={styles.legendLabel}>Less</Text>
@@ -47,17 +44,12 @@ export function MusclesTrainedCard({ workout }: { workout: Workout }) {
             ))}
           </View>
         ) : null}
-      </View>
+      </Card>
     </>
   );
 }
 
-/**
- * A strength read-out for a single workout: the main lifts (squat/bench/deadlift/
- * overhead press) trained in it, each with an estimated 1RM from this workout and
- * a tier (when bodyweight + sex are set), plus a session-strength score when more
- * than one main lift was rated. Free — no Pro gate.
- */
+// One workout's main-lift 1RM estimates + tiers. Intentionally free — no Pro gate.
 export function StrengthSummaryCard({ workout }: { workout: Workout }) {
   const { bodyweight, sex, unit } = useWorkouts();
   const profile = useMemo(
@@ -72,8 +64,8 @@ export function StrengthSummaryCard({ workout }: { workout: Workout }) {
 
   return (
     <>
-      <Text style={styles.sectionLabel}>Strength summary</Text>
-      <View style={styles.card}>
+      <SectionLabel>Strength summary</SectionLabel>
+      <Card padding={5} style={styles.card}>
         {strengthReady && profile.ratedCount >= 2 ? (
           <View style={styles.overall}>
             <View>
@@ -111,26 +103,13 @@ export function StrengthSummaryCard({ workout }: { workout: Workout }) {
             Add your bodyweight and sex on the Me tab to rate your lifts against strength standards.
           </Text>
         ) : null}
-      </View>
+      </Card>
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  sectionLabel: {
-    color: theme.colors.textMuted,
-    fontSize: 13,
-    fontWeight: "600",
-    textTransform: "uppercase",
-    letterSpacing: 1,
-    marginBottom: theme.space(3),
-  },
   card: {
-    backgroundColor: theme.colors.surface,
-    borderColor: theme.colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: theme.radius.md,
-    padding: theme.space(5),
     marginBottom: theme.space(4),
   },
   legend: {

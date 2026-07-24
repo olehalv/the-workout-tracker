@@ -1,17 +1,9 @@
 import type { Workout } from "./types";
 
-/**
- * Strength ratings for the main barbell lifts.
- *
- * We estimate a one-rep max from the user's best logged set (Epley), divide by
- * bodyweight to get a strength ratio, then classify that ratio against
- * approximate general strength standards (bodyweight-multiple thresholds per
- * lift and biological sex — the axis strength-standard tables are built on).
- * These are ballpark figures for a motivating self-assessment, not a
- * competition benchmark.
- */
+// Estimate a 1RM from the best logged set (Epley), divide by bodyweight, then
+// classify that ratio against approximate general strength standards. Ballpark
+// self-assessment figures, not a competition benchmark.
 
-/** Biological sex — used only to pick which standards column applies. */
 export type Sex = "male" | "female";
 
 export const STRENGTH_TIERS = ["Beginner", "Novice", "Intermediate", "Advanced", "Elite"] as const;
@@ -20,17 +12,14 @@ export type StrengthTier = (typeof STRENGTH_TIERS)[number];
 interface RatedLift {
   key: string;
   label: string;
-  /** Snapshot names (lowercased match) of workout exercises that count as this lift. */
+  // Snapshot names (lowercased) of workout exercises that count as this lift.
   names: string[];
-  /** Minimum 1RM-to-bodyweight ratio to reach each tier, indexed by STRENGTH_TIERS. */
+  // Minimum 1RM-to-bodyweight ratio per tier, indexed by STRENGTH_TIERS.
   standards: Record<Sex, [number, number, number, number, number]>;
 }
 
-/**
- * Ratios are estimated 1RM ÷ bodyweight. Values are rounded, widely-cited
- * general standards (comparable to strengthlevel.com's mid brackets); they trade
- * per-bodyweight precision for staying dependency-free and on-device.
- */
+// Ratios are estimated 1RM ÷ bodyweight — rounded, widely-cited general standards
+// (comparable to strengthlevel.com's mid brackets), kept dependency-free/on-device.
 export const RATED_LIFTS: RatedLift[] = [
   {
     key: "squat",
@@ -70,13 +59,12 @@ export const RATED_LIFTS: RatedLift[] = [
   },
 ];
 
-/** Epley one-rep-max estimate from a weight × reps set. */
+// Epley one-rep-max estimate from a weight × reps set.
 export function estimate1RM(weight: number, reps: number): number {
   if (weight <= 0 || reps <= 0) return 0;
   return reps === 1 ? weight : weight * (1 + reps / 30);
 }
 
-/** Best estimated 1RM (kg) across every logged set matching a lift's names. */
 function bestEstimated1RM(workouts: Workout[], names: string[]): number {
   const match = new Set(names);
   let best = 0;
@@ -95,19 +83,14 @@ function bestEstimated1RM(workouts: Workout[], names: string[]): number {
 export interface LiftRating {
   key: string;
   label: string;
-  /** Estimated 1RM in kg, or null when the lift has no logged sets. */
   e1rm: number | null;
   ratio: number | null;
   tier: StrengthTier | null;
-  /** 0–100 position across the standards range (Beginner floor → Elite). */
   score: number;
-  /** The next tier up, or null at Elite / when unrated. */
   nextTier: StrengthTier | null;
-  /** Extra 1RM (kg) needed to reach `nextTier`, or null. */
   kgToNext: number | null;
 }
 
-/** Tier index for a ratio: highest tier whose threshold it meets (floors at Beginner). */
 function tierIndex(ratio: number, thresholds: readonly number[]): number {
   let idx = 0;
   for (let i = 0; i < thresholds.length; i++) {
@@ -116,10 +99,9 @@ function tierIndex(ratio: number, thresholds: readonly number[]): number {
   return idx;
 }
 
-/** Tier midpoints on the 0–100 score scale (one per STRENGTH_TIERS entry). */
+// Tier midpoints on the 0–100 score scale (one per STRENGTH_TIERS entry).
 const TIER_POINTS = [8, 31, 54, 77, 100];
 
-/** Name the tier a 0–100 score falls in (shared by per-lift and overall scores). */
 export function tierForScore(score: number): StrengthTier {
   let idx = 0;
   for (let i = 0; i < TIER_POINTS.length; i++) {
@@ -128,7 +110,7 @@ export function tierForScore(score: number): StrengthTier {
   return STRENGTH_TIERS[idx];
 }
 
-/** Map a ratio to 0–100 across the tier thresholds (Beginner floor = 8, Elite = 100). */
+// Map a ratio to 0–100 by interpolating between tier thresholds.
 function scoreFor(ratio: number, thresholds: readonly number[]): number {
   const pts = TIER_POINTS;
   const first = thresholds[0];
@@ -146,7 +128,6 @@ function scoreFor(ratio: number, thresholds: readonly number[]): number {
   return 100;
 }
 
-/** Rate one lift from the user's history, or an unrated shell when no data. */
 function rateLift(lift: RatedLift, workouts: Workout[], bodyweight: number, sex: Sex): LiftRating {
   const e1rm = bestEstimated1RM(workouts, lift.names);
   if (e1rm <= 0 || bodyweight <= 0) {
@@ -179,18 +160,13 @@ function rateLift(lift: RatedLift, workouts: Workout[], bodyweight: number, sex:
 
 export interface StrengthProfile {
   lifts: LiftRating[];
-  /** Average score across rated lifts (0 when none rated). */
   overallScore: number;
-  /** Tier for the overall score, or null when nothing is rated yet. */
   overallTier: StrengthTier | null;
   ratedCount: number;
 }
 
-/**
- * Compute strength ratings for the main lifts. Requires a bodyweight (kg) and
- * sex; without a bodyweight the lifts return unrated shells so the UI can still
- * list them and prompt for the missing info.
- */
+// Without a bodyweight the lifts return unrated shells so the UI can still list
+// them and prompt for the missing info.
 export function strengthProfile(
   workouts: Workout[],
   bodyweight: number | null,

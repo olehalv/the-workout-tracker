@@ -13,7 +13,6 @@ export default async function AdminLoginPage({
 }: {
   searchParams: Promise<{ error?: string }>;
 }) {
-  // Already signed in → straight to the dashboard.
   if (await isAdminAuthed()) {
     redirect("/admin");
   }

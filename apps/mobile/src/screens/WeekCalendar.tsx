@@ -12,16 +12,14 @@ import { theme } from "../theme";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-/** How far back the calendar can page — roughly one year of weeks. */
-const MAX_WEEKS = 52;
+const MAX_WEEKS = 52; // ~1 year of paging
 
-/** Local calendar-day key (year-month-day) for grouping timestamps by date. */
+// Local calendar-day key for grouping timestamps by date.
 export function dayKey(ts: number): string {
   const d = new Date(ts);
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 }
 
-/** Midnight on the Sunday that begins the week containing `date`. */
 function startOfWeek(date: Date): Date {
   const d = new Date(date);
   d.setHours(0, 0, 0, 0);
@@ -29,7 +27,6 @@ function startOfWeek(date: Date): Date {
   return d;
 }
 
-/** The seven day-dates of the week `weeksBack` weeks before the current week. */
 function weekDays(currentWeekStart: Date, weeksBack: number): Date[] {
   const start = new Date(currentWeekStart);
   start.setDate(currentWeekStart.getDate() - weeksBack * 7);
@@ -40,12 +37,8 @@ function weekDays(currentWeekStart: Date, weeksBack: number): Date[] {
   });
 }
 
-/**
- * Paged week strip. Each page is one full week; the current week shows first and
- * swiping right pages one week further back in time. Weeks are loaded lazily — one
- * more each time you page back — up to {@link MAX_WEEKS} (~a year), so we never
- * build a year of cells at once.
- */
+// Paged week strip (one week per page, current first, older to the right). Weeks
+// load lazily as you page back, up to MAX_WEEKS, so we never build a year at once.
 export function WeekCalendar({
   selectedKey,
   marked,
@@ -56,14 +49,13 @@ export function WeekCalendar({
   onSelect: (ts: number) => void;
 }) {
   const [width, setWidth] = useState(0);
-  // How many weeks are currently loaded (index 0 = current week, growing back).
   const [count, setCount] = useState(2);
 
   const currentWeekStart = useMemo(() => startOfWeek(new Date()), []);
-  // data[i] = "weeks back" for page i.
+  // data[i] = weeks back for page i.
   const data = useMemo(() => Array.from({ length: count }, (_, i) => i), [count]);
 
-  // As the user pages back, keep one page ahead loaded (capped at a year).
+  // Keep one page ahead loaded as the user pages back (capped at MAX_WEEKS).
   const onScrollEnd = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
       if (width <= 0) return;
@@ -136,7 +128,6 @@ export function WeekCalendar({
 }
 
 const styles = StyleSheet.create({
-  // Keep the strip content-height instead of filling the column.
   wrap: {
     flexGrow: 0,
   },

@@ -7,17 +7,9 @@ import { usePurchases } from "../purchases/PurchaseContext";
 import { PRO_PRICE_LABEL, PRO_TRIAL_DAYS } from "../purchases/plans";
 import { theme } from "../theme";
 
-/**
- * Wraps Pro-only content. When `locked`, it renders the real content underneath
- * (so the user sees a teaser of what they're missing), blurs it, makes it
- * non-interactive, and overlays a lock + "Requires Pro" button that opens the
- * subscribe sheet. When unlocked it renders children untouched.
- *
- * The paywall sheet is rendered *here* (not once at the provider) so it presents
- * inside whatever modal the gate lives in — a Modal can't stack above another
- * Modal owned by an ancestor, which otherwise left the button doing nothing until
- * the surrounding screen's modal was dismissed.
- */
+// Blurs Pro-only children and overlays a subscribe button when `locked`.
+// The paywall sheet is rendered here (not at the provider) so it presents inside
+// whatever modal the gate lives in — a Modal can't stack above an ancestor's Modal.
 export function ProGate({
   locked,
   children,
@@ -27,14 +19,12 @@ export function ProGate({
   locked: boolean;
   children: ReactNode;
   style?: StyleProp<ViewStyle>;
-  /** Smaller lock chip (for tight rows) instead of the full lock + subtitle. */
   compact?: boolean;
 }) {
   const { entitlement } = usePurchases();
   const [paywallOpen, setPaywallOpen] = useState(false);
 
-  // Unlocked: render children in the same container box, fully interactive, so
-  // switching between locked/unlocked doesn't change layout.
+  // Same container box when unlocked, so toggling locked doesn't shift layout.
   if (!locked) return <View style={style}>{children}</View>;
 
   return (
@@ -75,8 +65,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     borderRadius: theme.radius.md,
   },
-  // Ensures short gated content (e.g. a single history row) still leaves room for
-  // the lock + button + hint overlay so it isn't cramped/clipped.
+  // Room for the overlay so short gated content isn't cramped/clipped.
   wrapMinHeight: {
     minHeight: 132,
   },

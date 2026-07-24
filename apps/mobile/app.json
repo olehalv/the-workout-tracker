@@ -28,7 +28,18 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "plugins": ["expo-apple-authentication", "expo-secure-store", "expo-web-browser"],
+    "plugins": [
+      "expo-apple-authentication",
+      "expo-secure-store",
+      "expo-web-browser",
+      [
+        "react-native-cloud-storage",
+        {
+          "iCloudContainerEnvironment": "Development",
+          "iCloudContainerIdentifier": "iCloud.dev.olehalv.theworkouttracker"
+        }
+      ]
+    ],
     "extra": {
       "eas": {
         "projectId": "acbc3441-709f-465f-8b3b-a627662c1739"

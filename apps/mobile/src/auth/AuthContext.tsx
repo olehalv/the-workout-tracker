@@ -22,11 +22,7 @@ interface AuthContextValue {
   isSigningIn: boolean;
   signInWithApple: () => Promise<void>;
   signOut: () => Promise<void>;
-  /**
-   * Re-fetch the user (and with it the Pro entitlement) on demand. Returns the
-   * fresh user, or null when there's no session. The billing flow polls this
-   * after checkout to notice the webhook landing.
-   */
+  // Re-fetch the user + entitlement; the billing flow polls this after checkout.
   refresh: () => Promise<AuthUser | null>;
 }
 
@@ -47,11 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
-  /**
-   * Re-fetch the user from the server so a plan change made in /admin is picked
-   * up without signing out. On an expired/rejected token we sign out; on a
-   * network error we keep the cached user (offline).
-   */
+  // On an expired/rejected token we sign out; on a network error we keep the cached user.
   const refreshUser = useCallback(
     async (activeToken: string): Promise<AuthUser | null> => {
       try {
@@ -64,7 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await SecureStore.setItemAsync(USER_KEY, JSON.stringify(fresh));
         return fresh;
       } catch {
-        // Service unreachable — keep the cached user until next refresh.
+        // Unreachable — keep the cached user until next refresh.
         return null;
       }
     },
@@ -86,10 +78,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         ]);
         if (active && storedToken && storedUser) {
           setToken(storedToken);
-          // normalizeUser: a user cached before entitlement existed has no such
-          // field, and the Pro gates read it synchronously on first render.
+          // normalizeUser: a user cached before entitlement existed lacks the field
+          // that the Pro gates read synchronously on first render.
           setUser(normalizeUser(JSON.parse(storedUser) as AuthUser));
-          // Pick up any server-side plan change since the app was last open.
           refreshUser(storedToken);
         }
       } finally {
@@ -103,8 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [refreshUser]);
 
-  // Refresh whenever the app returns to the foreground, so an /admin plan toggle
-  // shows up without a relaunch.
+  // Refresh on foreground so an /admin plan toggle (or late webhook) shows up without a relaunch.
   useEffect(() => {
     if (!token) return;
     const sub = AppState.addEventListener("change", (state) => {

@@ -14,48 +14,24 @@ import { useAuth } from "../auth/AuthContext";
 import { PaywallSheet } from "./PaywallSheet";
 import type { ProPlan } from "./plans";
 
-/**
- * Pro entitlement + the purchase flow.
- *
- * Payment intentionally bypasses StoreKit / Play Billing: `subscribe()` asks the
- * web app for a Stripe Checkout URL and opens it in an in-app browser. Stripe's
- * webhook is what actually grants Pro, so after the browser closes we poll the
- * server until the new entitlement shows up rather than trusting the client.
- *
- * There is no local entitlement cache any more — `isPro` comes from the server
- * user (itself cached in SecureStore by AuthContext, so offline still works).
- */
 interface PurchaseContextValue {
-  /** True if this account has Pro — paid subscription, admin comp, or trial. */
   isPro: boolean;
   entitlement: Entitlement;
-  /** Whole days left in the free trial (0 when not trialing). */
   trialDaysLeft: number;
-  /** A purchase / trial / portal round-trip is in flight. */
   busy: boolean;
   openPaywall: () => void;
-  /** Grant the no-card free trial. Returns true when Pro is now unlocked. */
   startFreeTrial: () => Promise<boolean>;
-  /** Run Stripe Checkout for a plan. Returns true when Pro is now unlocked. */
   subscribe: (plan: ProPlan) => Promise<boolean>;
-  /** Open the Stripe billing portal (update card, cancel, invoices). */
   manageSubscription: () => Promise<void>;
 }
 
 const PurchaseContext = createContext<PurchaseContextValue | null>(null);
 
-/**
- * How long to wait for Stripe's webhook after checkout. It usually lands in
- * under a second, but it's a server-to-server round trip we don't control.
- *
- * Two budgets, because the browser result tells us how likely a payment is:
- * `success` means the user came back through our success page's deep link, so
- * wait properly. `cancel`/`dismiss` means they closed the browser themselves —
- * usually a genuine cancel, so don't pin them behind a long spinner. It can
- * still be someone who paid and then closed the tab, hence the short grace
- * window; and if the webhook lands after we stop looking, AuthContext's
- * refresh-on-foreground picks it up anyway.
- */
+// Stripe's webhook (not the client) grants Pro, so after checkout we poll the
+// server for the new entitlement. Two budgets: a `success` deep link back means
+// a payment is likely, so wait properly; a hand-closed browser is usually a
+// cancel, so don't pin it behind a long spinner. A late webhook is picked up by
+// AuthContext's refresh-on-foreground.
 const CONFIRM_TIMEOUT_MS = 15_000;
 const CONFIRM_DISMISSED_TIMEOUT_MS = 4_000;
 const CONFIRM_INTERVAL_MS = 1_500;
@@ -69,11 +45,6 @@ export function PurchaseProvider({ children }: { children: ReactNode }) {
 
   const openPaywall = useCallback(() => setPaywallOpen(true), []);
 
-  /**
-   * Poll the server until the entitlement turns Pro or we give up. Needed
-   * because the browser closing tells us nothing about whether Stripe has
-   * finished processing the payment.
-   */
   const waitForPro = useCallback(
     async (budgetMs: number): Promise<boolean> => {
       const deadline = Date.now() + budgetMs;
@@ -118,24 +89,16 @@ export function PurchaseProvider({ children }: { children: ReactNode }) {
       setBusy(true);
       try {
         const checkoutUrl = await createCheckoutUrl(token, plan);
-
-        // Linking.createURL builds the right scheme for wherever we're running
-        // (exp://… under Expo Go, workouttracker://… in a real build), so the
-        // success page's "back to the app" link routes home either way.
         const returnUrl = Linking.createURL("billing/return");
         const result = await WebBrowser.openAuthSessionAsync(checkoutUrl, returnUrl);
 
-        // Poll regardless of the result type — someone who paid and then closed
-        // the browser by hand reports "dismiss" but is still a paying customer,
-        // and only the server knows which happened. The budget differs, though
-        // (see the constants), so a plain cancel isn't stuck behind a spinner.
+        // Poll regardless of result type: a hand-closed browser reports "dismiss"
+        // but may still be a completed payment — only the server knows.
         const returnedViaDeepLink = result.type === "success";
         const unlocked = await waitForPro(
           returnedViaDeepLink ? CONFIRM_TIMEOUT_MS : CONFIRM_DISMISSED_TIMEOUT_MS,
         );
 
-        // Only nag if they actually came back through the success page; closing
-        // the browser is far more often a deliberate "no thanks".
         if (!unlocked && returnedViaDeepLink) {
           Alert.alert(
             "Not confirmed yet",
@@ -159,8 +122,7 @@ export function PurchaseProvider({ children }: { children: ReactNode }) {
   const manageSubscription = useCallback(async (): Promise<void> => {
     if (!token) return;
 
-    // On the no-card trial there is no Stripe customer yet, so the portal would
-    // 409. Explain instead of surfacing an error.
+    // No Stripe customer exists on the no-card trial, so the portal would 409.
     if (!entitlement.canManageBilling) {
       Alert.alert(
         "Nothing to manage yet",
@@ -176,7 +138,6 @@ export function PurchaseProvider({ children }: { children: ReactNode }) {
       const portalUrl = await createPortalUrl(token);
       const returnUrl = Linking.createURL("billing/return");
       await WebBrowser.openAuthSessionAsync(portalUrl, returnUrl);
-      // Cancelling / changing the card fires a webhook; pick up the result.
       await refresh();
     } catch (err) {
       Alert.alert(

@@ -1,6 +1,5 @@
 import type { LibraryExercise } from "./types";
 
-/** Muscle groups offered when creating/editing a library exercise (multi-select). */
 export const MUSCLE_GROUPS = [
   "Chest",
   "Upper Back",
@@ -18,15 +17,9 @@ export const MUSCLE_GROUPS = [
   "Core",
 ] as const;
 
-/**
- * Built-in exercise library, seeded on first launch. Ids are stable strings
- * (`builtin-<index>`) so they never collide with generated custom-exercise ids —
- * which means **the order of this array is load-bearing**: never reorder or
- * remove an existing entry, only append. Reordering would remap ids to different
- * exercises in already-installed copies. Each exercise lists the muscle groups it
- * primarily targets. `reconcileLibrary` (WorkoutContext) appends any entries a
- * stored library is missing, so new additions reach existing users too.
- */
+// Ids are `builtin-<index>`, so array order is load-bearing: only append — never
+// reorder or remove an entry, or ids remap to different exercises in installed
+// copies. reconcileLibrary appends entries a stored library is missing.
 const SEED: Array<[string, string[]]> = [
   // Legs
   ["Back Squat", ["Quads", "Glutes"]],

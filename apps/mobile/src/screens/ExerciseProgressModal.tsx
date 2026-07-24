@@ -1,7 +1,8 @@
 import { useMemo } from "react";
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Modal, ScrollView, StyleSheet, Text, View } from "react-native";
 import { LineChart } from "../components/LineChart";
 import { ProGate } from "../components/ProGate";
+import { Card, ScreenHeader, SectionLabel, Stat, StatGrid } from "../components/ui";
 import { usePurchases } from "../purchases/PurchaseContext";
 import { theme } from "../theme";
 import type { LibraryExercise, ProgressPoint } from "../workouts/types";
@@ -12,11 +13,7 @@ function fmtShort(ts: number): string {
   return new Date(ts).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
-/**
- * Progress view for a single library exercise: a progression line of the top-set
- * weight across every session it appears in, plus a reverse-chronological history
- * of previous sessions (best set + volume) — the "previous weight tracked" record.
- */
+// Top-set progression line + reverse-chronological session history for one exercise.
 export function ExerciseProgressModal({
   exercise,
   onClose,
@@ -52,15 +49,13 @@ export function ExerciseProgressModal({
       transparent={false}
     >
       <View style={styles.container}>
-        <View style={styles.header}>
-          <View style={styles.headerMain}>
-            <Text style={styles.eyebrow}>Progress</Text>
-            <Text style={styles.title}>{exercise?.name}</Text>
-          </View>
-          <Pressable onPress={onClose} hitSlop={8}>
-            <Text style={styles.close}>Done</Text>
-          </Pressable>
-        </View>
+        <ScreenHeader
+          eyebrow="Progress"
+          title={exercise?.name ?? ""}
+          titleSize={26}
+          action={{ label: "Done", onPress: onClose }}
+          style={styles.header}
+        />
 
         {points.length === 0 ? (
           <View style={styles.emptyWrap}>
@@ -70,24 +65,31 @@ export function ExerciseProgressModal({
           </View>
         ) : (
           <ScrollView contentContainerStyle={styles.scrollContent}>
-            <View style={styles.statsRow}>
-              <Stat label="Best" value={`${best} ${unit}`} />
-              <Stat label="Latest" value={`${latest} ${unit}`} />
+            <StatGrid style={styles.statsRow}>
+              <Stat style={styles.statTile} valueSize={18} label="Best" value={`${best} ${unit}`} />
               <Stat
+                style={styles.statTile}
+                valueSize={18}
+                label="Latest"
+                value={`${latest} ${unit}`}
+              />
+              <Stat
+                style={styles.statTile}
+                valueSize={18}
                 label="Since first"
                 value={`${delta >= 0 ? "+" : ""}${delta} ${unit}`}
                 accent={delta > 0}
               />
-            </View>
+            </StatGrid>
 
-            <Text style={styles.sectionLabel}>Top-set weight over time ({unit})</Text>
+            <SectionLabel>Top-set weight over time ({unit})</SectionLabel>
             <ProGate locked={!isPro} style={styles.chartGate}>
-              <View style={styles.chartCard}>
+              <Card>
                 <LineChart data={chartData} />
-              </View>
+              </Card>
             </ProGate>
 
-            <Text style={styles.sectionLabel}>History</Text>
+            <SectionLabel>History</SectionLabel>
             {(() => {
               const history = [...points].reverse();
               const [latestPoint, ...older] = history;
@@ -124,15 +126,6 @@ function HistoryRow({ point, unit }: { point: ProgressPoint; unit: WeightUnit })
   );
 }
 
-function Stat({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
-  return (
-    <View style={styles.stat}>
-      <Text style={[styles.statValue, accent && styles.statAccent]}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -141,80 +134,20 @@ const styles = StyleSheet.create({
     paddingTop: theme.space(14),
   },
   header: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
     marginBottom: theme.space(5),
-  },
-  headerMain: {
-    flex: 1,
-  },
-  eyebrow: {
-    color: theme.colors.accent,
-    fontSize: 13,
-    fontWeight: "600",
-    textTransform: "uppercase",
-    letterSpacing: 1,
-  },
-  title: {
-    color: theme.colors.text,
-    fontSize: 26,
-    fontWeight: "700",
-    marginTop: theme.space(1),
-  },
-  close: {
-    color: theme.colors.accent,
-    fontSize: 16,
-    fontWeight: "600",
-    paddingLeft: theme.space(3),
   },
   scrollContent: {
     paddingBottom: theme.space(10),
   },
   statsRow: {
-    flexDirection: "row",
-    gap: theme.space(3),
+    flexWrap: "nowrap",
     marginBottom: theme.space(6),
   },
-  stat: {
+  statTile: {
     flex: 1,
-    backgroundColor: theme.colors.surface,
-    borderColor: theme.colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: theme.radius.md,
-    paddingVertical: theme.space(4),
-    paddingHorizontal: theme.space(3),
-  },
-  statValue: {
-    color: theme.colors.text,
-    fontSize: 18,
-    fontWeight: "700",
-  },
-  statAccent: {
-    color: theme.colors.accent,
-  },
-  statLabel: {
-    color: theme.colors.textMuted,
-    fontSize: 12,
-    marginTop: theme.space(1),
-  },
-  sectionLabel: {
-    color: theme.colors.textMuted,
-    fontSize: 13,
-    fontWeight: "600",
-    textTransform: "uppercase",
-    letterSpacing: 1,
-    marginBottom: theme.space(3),
   },
   chartGate: {
     marginBottom: theme.space(6),
-  },
-  chartCard: {
-    backgroundColor: theme.colors.surface,
-    borderColor: theme.colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: theme.radius.md,
-    padding: theme.space(4),
   },
   historyRow: {
     flexDirection: "row",

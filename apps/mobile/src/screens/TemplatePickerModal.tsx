@@ -1,5 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { FlatList, Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { common, ScreenHeader } from "../components/ui";
 import { theme } from "../theme";
 import type { WorkoutPreset } from "../workouts/types";
 import { useWorkouts } from "../workouts/WorkoutContext";
@@ -8,7 +9,6 @@ function totalPresetSets(p: WorkoutPreset): number {
   return p.exercises.reduce((n, e) => n + e.sets, 0);
 }
 
-/** Pick a template to start a workout from (used on the Workouts tab). */
 export function TemplatePickerModal({
   visible,
   onClose,
@@ -26,12 +26,12 @@ export function TemplatePickerModal({
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose} transparent={false}>
       <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Start from template</Text>
-          <Pressable onPress={onClose} hitSlop={8}>
-            <Text style={styles.cancel}>Cancel</Text>
-          </Pressable>
-        </View>
+        <ScreenHeader
+          title="Start from template"
+          titleSize={22}
+          action={{ label: "Cancel", onPress: onClose }}
+          style={styles.header}
+        />
 
         <FlatList
           data={presets}
@@ -42,7 +42,7 @@ export function TemplatePickerModal({
           }
           renderItem={({ item }) => (
             <Pressable
-              style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+              style={({ pressed }) => [common.surface, styles.row, pressed && common.pressed]}
               onPress={() => start(item)}
             >
               <View style={styles.rowMain}>
@@ -69,20 +69,7 @@ const styles = StyleSheet.create({
     paddingTop: theme.space(14),
   },
   header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
     marginBottom: theme.space(4),
-  },
-  title: {
-    color: theme.colors.text,
-    fontSize: 22,
-    fontWeight: "700",
-  },
-  cancel: {
-    color: theme.colors.accent,
-    fontSize: 16,
-    fontWeight: "600",
   },
   listContent: {
     paddingBottom: theme.space(10),
@@ -103,10 +90,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: theme.space(3),
-    backgroundColor: theme.colors.surface,
-    borderColor: theme.colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: theme.radius.md,
     paddingHorizontal: theme.space(4),
     paddingVertical: theme.space(4),
   },
@@ -122,8 +105,5 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     fontSize: 13,
     marginTop: theme.space(1),
-  },
-  pressed: {
-    opacity: 0.6,
   },
 });

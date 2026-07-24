@@ -8,14 +8,8 @@ import { applySubscriptionState, getUserById, getUserByStripeCustomerId } from "
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/**
- * The only place a payment grants Pro.
- *
- * Deliberately not the browser redirect: the user can close the in-app browser
- * before `success_url` loads, and a redirect is client-controlled anyway. Stripe
- * signs these events, retries them, and re-sends on failure, so this is the one
- * channel we trust with entitlement.
- */
+// The only place a payment grants Pro — not the browser redirect, which is
+// client-controlled and may never load. Stripe signs and retries these events.
 export async function POST(req: Request): Promise<NextResponse> {
   if (!isBillingConfigured() || !config.stripe.webhookSecret) {
     return NextResponse.json({ error: "billing_not_configured" }, { status: 503 });
@@ -45,8 +39,7 @@ export async function POST(req: Request): Promise<NextResponse> {
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object;
-        // A subscription checkout always has a subscription id; fetch the full
-        // object so we write the same fields as the subscription.* events.
+        // Fetch the full subscription so we write the same fields as subscription.* events.
         if (typeof session.subscription === "string") {
           const subscription = await getStripe().subscriptions.retrieve(session.subscription);
           await syncSubscription(subscription, session.client_reference_id);
@@ -62,7 +55,6 @@ export async function POST(req: Request): Promise<NextResponse> {
       }
 
       default:
-        // Everything else is informational; ack so Stripe stops retrying.
         break;
     }
   } catch (err) {
@@ -74,13 +66,8 @@ export async function POST(req: Request): Promise<NextResponse> {
   return NextResponse.json({ received: true });
 }
 
-/**
- * Write a Stripe subscription's state onto our user row.
- *
- * Resolving the user prefers the subscription metadata (set at checkout) and
- * falls back to the customer id, so renewals a year later still land even if
- * metadata was lost.
- */
+// Resolves the user by subscription metadata (set at checkout), falling back to
+// the customer id so renewals still land if metadata was lost.
 async function syncSubscription(
   subscription: Stripe.Subscription,
   fallbackUserId: string | null,
@@ -102,17 +89,12 @@ async function syncSubscription(
     stripeStatus: subscription.status,
     cancelAtPeriodEnd: subscription.cancel_at_period_end,
     paidUntil: isPro ? periodEnd(subscription) : null,
-    // Downgrade to "free" on cancellation so /admin and the app agree. An admin
-    // comp is re-granted by hand; we don't try to preserve it here.
+    // Downgrade to "free" on cancellation so /admin and the app agree; an admin comp is re-granted by hand.
     plan: isPro ? "pro" : "free",
   });
 }
 
-/**
- * End of the current paid period. Stripe moved `current_period_end` off the
- * subscription and onto its items, so take the latest across items (there is
- * normally exactly one).
- */
+// Stripe moved current_period_end off the subscription onto its items; take the latest.
 function periodEnd(subscription: Stripe.Subscription): Date | null {
   const ends = subscription.items.data
     .map((item) => item.current_period_end)

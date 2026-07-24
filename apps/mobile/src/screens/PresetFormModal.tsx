@@ -1,6 +1,7 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useEffect, useMemo, useState } from "react";
-import { Alert, FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, FlatList, Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { Button, common, Input, ScreenHeader, SectionLabel } from "../components/ui";
 import { theme } from "../theme";
 import {
   DEFAULT_PRESET_SETS,
@@ -14,19 +15,13 @@ import { ExerciseFormModal } from "./ExerciseFormModal";
 
 const MAX_SETS = 12;
 
-/** A selected exercise while editing — a preset exercise plus a local instance
- *  id so the same library exercise can appear multiple times. */
+// Local instance id so the same library exercise can appear multiple times.
 type SelItem = PresetExercise & { uid: string };
 
 let uidSeq = 0;
 const makeUid = () => `sel-${Date.now()}-${uidSeq++}`;
 
-/**
- * Create or edit a workout preset (template): name it and pick an ordered set of
- * library exercises (search or create new), each with a target number of sets.
- * Pass `preset` to edit; otherwise it creates, optionally seeded with
- * `initialExercises` (e.g. "save workout as template").
- */
+// Pass `preset` to edit; otherwise creates, optionally seeded with `initialExercises`.
 export function PresetFormModal({
   visible,
   preset,
@@ -57,7 +52,6 @@ export function PresetFormModal({
     }
   }, [visible, preset, initialExercises]);
 
-  // How many times each library exercise is currently in the template.
   const counts = useMemo(() => {
     const m = new Map<string, number>();
     for (const e of selected) m.set(e.exerciseId, (m.get(e.exerciseId) ?? 0) + 1);
@@ -106,7 +100,6 @@ export function PresetFormModal({
 
   const save = () => {
     if (!canSave) return;
-    // Drop the local instance ids before persisting.
     const exercises = selected.map((e) => ({
       exerciseId: e.exerciseId,
       name: e.name,
@@ -135,12 +128,12 @@ export function PresetFormModal({
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose} transparent={false}>
       <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.title}>{isEdit ? "Edit template" : "New template"}</Text>
-          <Pressable onPress={onClose} hitSlop={8}>
-            <Text style={styles.cancel}>Cancel</Text>
-          </Pressable>
-        </View>
+        <ScreenHeader
+          title={isEdit ? "Edit template" : "New template"}
+          titleSize={22}
+          action={{ label: "Cancel", onPress: onClose }}
+          style={styles.header}
+        />
 
         <FlatList
           data={results}
@@ -149,11 +142,10 @@ export function PresetFormModal({
           contentContainerStyle={styles.listContent}
           ListHeaderComponent={
             <View>
-              <Text style={styles.label}>Name</Text>
-              <TextInput
+              <SectionLabel style={styles.label}>Name</SectionLabel>
+              <Input
                 style={styles.input}
                 placeholder="e.g. Push day"
-                placeholderTextColor={theme.colors.textMuted}
                 value={name}
                 onChangeText={setName}
                 autoFocus={!isEdit}
@@ -161,9 +153,9 @@ export function PresetFormModal({
                 returnKeyType="done"
               />
 
-              <Text style={styles.label}>
+              <SectionLabel style={styles.label}>
                 Exercises{selected.length > 0 ? ` · ${selected.length}` : ""}
-              </Text>
+              </SectionLabel>
               {selected.length === 0 ? (
                 <Text style={styles.hint}>Tap exercises below to add them, in order.</Text>
               ) : (
@@ -205,7 +197,7 @@ export function PresetFormModal({
                       </Text>
                       <View style={styles.stepper}>
                         <Pressable
-                          style={({ pressed }) => [styles.stepBtn, pressed && styles.pressed]}
+                          style={({ pressed }) => [styles.stepBtn, pressed && common.pressed]}
                           onPress={() => changeSets(e.uid, -1)}
                           hitSlop={4}
                         >
@@ -213,7 +205,7 @@ export function PresetFormModal({
                         </Pressable>
                         <Text style={styles.stepVal}>{e.sets}</Text>
                         <Pressable
-                          style={({ pressed }) => [styles.stepBtn, pressed && styles.pressed]}
+                          style={({ pressed }) => [styles.stepBtn, pressed && common.pressed]}
                           onPress={() => changeSets(e.uid, 1)}
                           hitSlop={4}
                         >
@@ -229,10 +221,9 @@ export function PresetFormModal({
                 </View>
               )}
 
-              <TextInput
+              <Input
                 style={styles.search}
                 placeholder="Search or create an exercise"
-                placeholderTextColor={theme.colors.textMuted}
                 value={query}
                 onChangeText={setQuery}
                 autoCorrect={false}
@@ -240,7 +231,7 @@ export function PresetFormModal({
               />
               {q.length > 0 && !exactMatch ? (
                 <Pressable
-                  style={({ pressed }) => [styles.createRow, pressed && styles.pressed]}
+                  style={({ pressed }) => [styles.createRow, pressed && common.pressed]}
                   onPress={() => setCreatingExercise(true)}
                 >
                   <Text style={styles.createText}>Create “{query.trim()}”</Text>
@@ -252,7 +243,7 @@ export function PresetFormModal({
           renderItem={({ item }) => {
             const count = counts.get(item.id) ?? 0;
             return (
-              <View style={styles.row}>
+              <View style={[common.surface, styles.row]}>
                 <Pressable style={styles.rowMain} onPress={() => add(item.id, item.name)}>
                   <Text style={styles.rowName}>{item.name}</Text>
                   <Text style={styles.rowCategory}>
@@ -262,7 +253,7 @@ export function PresetFormModal({
                   </Text>
                 </Pressable>
                 <Pressable
-                  style={({ pressed }) => [styles.editBtn, pressed && styles.pressed]}
+                  style={({ pressed }) => [styles.editBtn, pressed && common.pressed]}
                   onPress={() => setEditingExercise(item)}
                   hitSlop={6}
                 >
@@ -276,24 +267,19 @@ export function PresetFormModal({
           }}
         />
 
-        <Pressable
+        <Button
+          title={isEdit ? "Save template" : "Create template"}
           disabled={!canSave}
-          style={({ pressed }) => [
-            styles.save,
-            !canSave && styles.disabled,
-            pressed && styles.pressed,
-          ]}
           onPress={save}
-        >
-          <Text style={styles.saveText}>{isEdit ? "Save template" : "Create template"}</Text>
-        </Pressable>
+          style={styles.saveBtn}
+        />
         {isEdit ? (
-          <Pressable
-            style={({ pressed }) => [styles.delete, pressed && styles.pressed]}
+          <Button
+            title="Delete template"
+            variant="danger"
             onPress={confirmDelete}
-          >
-            <Text style={styles.deleteText}>Delete template</Text>
-          </Pressable>
+            style={styles.gapTop}
+          />
         ) : null}
 
         <ExerciseFormModal
@@ -320,43 +306,17 @@ const styles = StyleSheet.create({
     paddingBottom: theme.space(4),
   },
   header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
     marginBottom: theme.space(4),
-  },
-  title: {
-    color: theme.colors.text,
-    fontSize: 22,
-    fontWeight: "700",
-  },
-  cancel: {
-    color: theme.colors.accent,
-    fontSize: 16,
-    fontWeight: "600",
   },
   listContent: {
     paddingBottom: theme.space(4),
     gap: theme.space(2),
   },
   label: {
-    color: theme.colors.textMuted,
-    fontSize: 13,
-    fontWeight: "600",
-    textTransform: "uppercase",
-    letterSpacing: 1,
     marginBottom: theme.space(2),
     marginTop: theme.space(2),
   },
   input: {
-    color: theme.colors.text,
-    backgroundColor: theme.colors.surface,
-    borderColor: theme.colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: theme.radius.md,
-    paddingHorizontal: theme.space(4),
-    paddingVertical: theme.space(3),
-    fontSize: 16,
     marginBottom: theme.space(3),
   },
   hint: {
@@ -429,14 +389,6 @@ const styles = StyleSheet.create({
     paddingLeft: theme.space(1),
   },
   search: {
-    color: theme.colors.text,
-    backgroundColor: theme.colors.surface,
-    borderColor: theme.colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: theme.radius.md,
-    paddingHorizontal: theme.space(4),
-    paddingVertical: theme.space(3),
-    fontSize: 16,
     marginBottom: theme.space(2),
   },
   createRow: {
@@ -462,10 +414,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: theme.space(3),
-    backgroundColor: theme.colors.surface,
-    borderColor: theme.colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: theme.radius.md,
     paddingHorizontal: theme.space(4),
     paddingVertical: theme.space(3),
   },
@@ -500,35 +448,10 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     paddingHorizontal: theme.space(2),
   },
-  save: {
-    alignItems: "center",
-    paddingVertical: theme.space(4),
-    borderRadius: theme.radius.md,
-    backgroundColor: theme.colors.accent,
+  saveBtn: {
     marginTop: theme.space(2),
   },
-  saveText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  delete: {
-    alignItems: "center",
-    paddingVertical: theme.space(4),
+  gapTop: {
     marginTop: theme.space(2),
-    borderRadius: theme.radius.md,
-    borderColor: theme.colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-  },
-  deleteText: {
-    color: theme.colors.danger,
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  disabled: {
-    opacity: 0.4,
-  },
-  pressed: {
-    opacity: 0.6,
   },
 });

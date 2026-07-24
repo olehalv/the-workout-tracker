@@ -29,16 +29,12 @@ function getSigningKey(header: JwtHeader, callback: SigningKeyCallback): void {
 }
 
 export interface AppleIdentity {
-  /** Stable, unique Apple user id (the token `sub`). Use this as the account key. */
   appleUserId: string;
   email?: string;
   emailVerified?: boolean;
 }
 
-/**
- * Verifies a Sign in with Apple identity token (a JWT) against Apple's public
- * keys, and validates issuer + audience. Throws if the token is invalid.
- */
+// Verifies the identity token against Apple's public keys + issuer/audience.
 export function verifyAppleIdentityToken(identityToken: string): Promise<AppleIdentity> {
   const verifyOptions: VerifyOptions = {
     issuer: APPLE_ISSUER,

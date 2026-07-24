@@ -1,13 +1,8 @@
-// The web app (Next.js) hosts the user/auth API. On a physical device,
-// "localhost" points at the device itself — set EXPO_PUBLIC_USER_API_URL to your
-// machine's LAN IP (e.g. http://192.168.1.20:3000).
+// On a physical device "localhost" is the device itself — set
+// EXPO_PUBLIC_USER_API_URL to your machine's LAN IP (e.g. http://192.168.1.20:3000).
 const USER_API_URL = process.env.EXPO_PUBLIC_USER_API_URL ?? "http://localhost:3000";
 
-/**
- * React Native's fetch has no default timeout, so a wrong or unreachable
- * API URL leaves the caller's spinner up indefinitely rather than surfacing
- * an error. Every request below goes through this instead.
- */
+// RN's fetch has no default timeout, so an unreachable URL hangs the spinner forever.
 const REQUEST_TIMEOUT_MS = 15_000;
 
 async function fetchWithTimeout(path: string, init?: RequestInit): Promise<Response> {
@@ -20,25 +15,19 @@ async function fetchWithTimeout(path: string, init?: RequestInit): Promise<Respo
   }
 }
 
-/**
- * Why the user does (or doesn't) have Pro. Computed by the server — the app
- * never decides this itself, so a wound-forward device clock can't extend a
- * trial. Mirrors `apps/web/src/server/billing/entitlement.ts`.
- */
+// Computed server-side (mirrors apps/web/src/server/billing/entitlement.ts) so a
+// wound-forward device clock can't extend a trial.
 export interface Entitlement {
   isPro: boolean;
   source: "subscription" | "trial" | "admin" | "none";
   trialEndsAt: string | null;
   trialDaysLeft: number;
-  /** True when the free trial has never been started — CTA is "try it free". */
   trialEligible: boolean;
   paidUntil: string | null;
   cancelAtPeriodEnd: boolean;
-  /** True once there's a Stripe customer, i.e. the billing portal will open. */
   canManageBilling: boolean;
 }
 
-/** No account / offline with nothing cached: locked, but still trial-eligible. */
 export const NO_ENTITLEMENT: Entitlement = {
   isPro: false,
   source: "none",
@@ -57,11 +46,8 @@ export interface AuthUser {
   entitlement: Entitlement;
 }
 
-/**
- * Users cached in SecureStore before entitlement existed (or written by an older
- * server) have no `entitlement` field. Fill it in rather than crashing on
- * `user.entitlement.isPro` — the next refresh replaces it with the real thing.
- */
+// Back-compat: users cached before entitlement existed lack the field; fill it in
+// rather than crashing on user.entitlement.isPro (the next refresh replaces it).
 export function normalizeUser(user: AuthUser): AuthUser {
   return { ...user, entitlement: user.entitlement ?? NO_ENTITLEMENT };
 }
@@ -72,12 +58,8 @@ export interface AuthResponse {
   user: AuthUser;
 }
 
-/**
- * Fetch the current user for a session token. Returns the fresh user (so an
- * admin plan change is picked up), `null` when the token is rejected (expired /
- * user deleted — caller should sign out), or throws when the service is
- * unreachable (offline — caller should keep the cached user).
- */
+// Returns the fresh user, null when the token is rejected (caller signs out), or
+// throws when unreachable (offline — caller keeps the cached user).
 export async function fetchMe(token: string): Promise<AuthUser | null> {
   let res: Response;
   try {
@@ -95,13 +77,9 @@ export async function fetchMe(token: string): Promise<AuthUser | null> {
   return normalizeUser(body.user);
 }
 
-// --- Billing --------------------------------------------------------------
-// Payment runs outside the App Store / Play Store: these endpoints hand back a
-// Stripe URL that the app opens in an in-app browser. Nothing here grants Pro —
-// the Stripe webhook does that server-side, and the app learns about it by
-// re-fetching the user.
+// Billing: these endpoints only hand back a Stripe URL to open in a browser —
+// nothing here grants Pro; the Stripe webhook does that server-side.
 
-/** Thrown for billing calls so callers can show the server's own message. */
 export class BillingError extends Error {
   constructor(
     message: string,
@@ -139,7 +117,6 @@ async function postAuthed<T>(path: string, token: string, body?: unknown): Promi
   return payload as T;
 }
 
-/** Turns the server's error codes into something worth showing a lifter. */
 function billingMessage(code: string, serverMessage?: string): string {
   switch (code) {
     case "billing_not_configured":
@@ -153,10 +130,7 @@ function billingMessage(code: string, serverMessage?: string): string {
   }
 }
 
-/**
- * Start the no-card free trial. Idempotent server-side — calling it again after
- * a reinstall returns the original end date rather than a fresh window.
- */
+// Idempotent server-side: calling again after a reinstall returns the original end date.
 export async function startTrial(token: string): Promise<{ user: AuthUser; alreadyUsed: boolean }> {
   const body = await postAuthed<{ user: AuthUser; alreadyUsed: boolean }>(
     "/api/billing/trial",
@@ -165,7 +139,6 @@ export async function startTrial(token: string): Promise<{ user: AuthUser; alrea
   return { user: normalizeUser(body.user), alreadyUsed: body.alreadyUsed };
 }
 
-/** Create a Stripe Checkout session and return its hosted URL. */
 export async function createCheckoutUrl(
   token: string,
   plan: "monthly" | "annual",
@@ -174,7 +147,6 @@ export async function createCheckoutUrl(
   return body.url;
 }
 
-/** Create a Stripe billing-portal session (manage card / cancel) and return its URL. */
 export async function createPortalUrl(token: string): Promise<string> {
   const body = await postAuthed<{ url: string }>("/api/billing/portal", token);
   return body.url;

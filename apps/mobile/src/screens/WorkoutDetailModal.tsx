@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Card, ScreenHeader, SectionLabel, Stat, StatGrid } from "../components/ui";
 import { MusclesTrainedCard, StrengthSummaryCard } from "../components/WorkoutRecap";
 import { theme } from "../theme";
 import { elapsedMs, formatDuration, formatTimeOfDay } from "../workouts/time";
@@ -16,7 +17,6 @@ function fmtDate(ts: number): string {
   });
 }
 
-/** Read-only view of a finished workout: totals plus every exercise, set, note. */
 export function WorkoutDetailModal({
   workout,
   onClose,
@@ -37,42 +37,44 @@ export function WorkoutDetailModal({
       transparent={false}
     >
       <View style={styles.container}>
-        <View style={styles.header}>
-          <View style={styles.headerMain}>
-            <Text style={styles.eyebrow}>Workout</Text>
-            <Text style={styles.title}>{workout ? fmtDate(workout.startedAt) : ""}</Text>
-            {workout ? (
-              <Text style={styles.subtitle}>
-                {formatTimeOfDay(workout.startedAt)}
-                {workout.finishedAt != null ? ` → ${formatTimeOfDay(workout.finishedAt)}` : ""}
-              </Text>
-            ) : null}
-          </View>
-          <Pressable onPress={onClose} hitSlop={8}>
-            <Text style={styles.close}>Done</Text>
-          </Pressable>
-        </View>
+        <ScreenHeader
+          eyebrow="Workout"
+          title={workout ? fmtDate(workout.startedAt) : ""}
+          titleSize={22}
+          subtitle={
+            workout
+              ? `${formatTimeOfDay(workout.startedAt)}${workout.finishedAt != null ? ` → ${formatTimeOfDay(workout.finishedAt)}` : ""}`
+              : undefined
+          }
+          action={{ label: "Done", onPress: onClose }}
+          style={styles.header}
+        />
 
         {workout ? (
           <ScrollView contentContainerStyle={styles.scrollContent}>
-            <View style={styles.statsRow}>
-              <Stat label="Exercises" value={`${workout.exercises.length}`} />
-              <Stat label="Sets" value={`${totalSets(workout)}`} />
+            <StatGrid style={styles.statsRow}>
               <Stat
+                style={styles.statTile}
+                label="Exercises"
+                value={`${workout.exercises.length}`}
+              />
+              <Stat style={styles.statTile} label="Sets" value={`${totalSets(workout)}`} />
+              <Stat
+                style={styles.statTile}
                 label="Volume"
                 value={`${Math.round(toDisplayWeight(totalVolume(workout), unit))} ${unit}`}
               />
               {duration !== null ? (
-                <Stat label="Duration" value={formatDuration(duration)} />
+                <Stat style={styles.statTile} label="Duration" value={formatDuration(duration)} />
               ) : null}
-            </View>
+            </StatGrid>
 
             <MusclesTrainedCard workout={workout} />
             <StrengthSummaryCard workout={workout} />
 
-            <Text style={styles.sectionLabel}>Exercises</Text>
+            <SectionLabel>Exercises</SectionLabel>
             {workout.exercises.map((ex) => (
-              <View key={ex.id} style={styles.card}>
+              <Card key={ex.id} style={styles.exerciseCard}>
                 <Text style={styles.cardTitle}>{ex.name}</Text>
                 {ex.sets.map((s, i) => (
                   <View key={s.id} style={styles.setRow}>
@@ -83,7 +85,7 @@ export function WorkoutDetailModal({
                   </View>
                 ))}
                 {ex.note ? <Text style={styles.note}>{ex.note}</Text> : null}
-              </View>
+              </Card>
             ))}
 
             {workout.exercises.length > 0 ? (
@@ -109,15 +111,6 @@ export function WorkoutDetailModal({
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.stat}>
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -126,82 +119,19 @@ const styles = StyleSheet.create({
     paddingTop: theme.space(14),
   },
   header: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
     marginBottom: theme.space(5),
-  },
-  headerMain: {
-    flex: 1,
-  },
-  eyebrow: {
-    color: theme.colors.accent,
-    fontSize: 13,
-    fontWeight: "600",
-    textTransform: "uppercase",
-    letterSpacing: 1,
-  },
-  title: {
-    color: theme.colors.text,
-    fontSize: 22,
-    fontWeight: "700",
-    marginTop: theme.space(1),
-  },
-  subtitle: {
-    color: theme.colors.textMuted,
-    fontSize: 13,
-    fontWeight: "600",
-    marginTop: theme.space(1),
-  },
-  close: {
-    color: theme.colors.accent,
-    fontSize: 16,
-    fontWeight: "600",
-    paddingLeft: theme.space(3),
   },
   scrollContent: {
     paddingBottom: theme.space(10),
   },
-  sectionLabel: {
-    color: theme.colors.textMuted,
-    fontSize: 13,
-    fontWeight: "600",
-    textTransform: "uppercase",
-    letterSpacing: 1,
-    marginBottom: theme.space(3),
-  },
   statsRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: theme.space(3),
     marginBottom: theme.space(6),
   },
-  stat: {
+  statTile: {
     flexGrow: 1,
     flexBasis: "40%",
-    backgroundColor: theme.colors.surface,
-    borderColor: theme.colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: theme.radius.md,
-    paddingVertical: theme.space(4),
-    paddingHorizontal: theme.space(4),
   },
-  statValue: {
-    color: theme.colors.text,
-    fontSize: 20,
-    fontWeight: "700",
-  },
-  statLabel: {
-    color: theme.colors.textMuted,
-    fontSize: 12,
-    marginTop: theme.space(1),
-  },
-  card: {
-    backgroundColor: theme.colors.surface,
-    borderColor: theme.colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: theme.radius.md,
-    padding: theme.space(4),
+  exerciseCard: {
     marginBottom: theme.space(3),
   },
   cardTitle: {

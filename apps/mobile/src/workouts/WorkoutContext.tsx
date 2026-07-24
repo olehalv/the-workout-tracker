@@ -20,17 +20,12 @@ import type {
 } from "./types";
 import type { WeightUnit } from "./units";
 
-/** Persisted user settings blob. Bodyweight is stored canonically in kg. */
 interface StoredSettings {
   unit: WeightUnit;
   bodyweight: number | null;
   sex: Sex | null;
 }
 
-/**
- * Persisted in-progress workout blob, so a reload/relaunch keeps the active
- * workout (and whether it was minimized) instead of discarding it.
- */
 interface StoredActive {
   workout: Workout | null;
   minimized: boolean;
@@ -38,7 +33,7 @@ interface StoredActive {
 
 type SetPatch = Partial<Pick<WorkoutSet, "reps" | "weight">>;
 
-/** Older stored exercises used a single `category` string; normalize to array. */
+// Older stored exercises used a single `category` string; normalize to array.
 type StoredExercise = {
   id: string;
   name: string;
@@ -56,14 +51,9 @@ function normalizeLibrary(items: StoredExercise[]): LibraryExercise[] {
   }));
 }
 
-/**
- * Load the stored library, refreshing each built-in exercise's muscle groups
- * from the current seed (older data used broad categories like "Legs") and
- * appending any built-ins the stored copy predates, so seed additions reach
- * existing users. Custom exercises and any user renames of built-ins are
- * preserved. (Trade-off: a built-in the user deleted comes back on next launch —
- * acceptable while the library keeps growing.)
- */
+// Refreshes built-ins' muscle groups from the seed and appends seed entries the
+// stored copy predates (so additions reach existing users), preserving customs
+// and renames. Trade-off: a built-in the user deleted reappears on next launch.
 function reconcileLibrary(items: StoredExercise[]): LibraryExercise[] {
   const seed = defaultLibrary();
   const seedById = new Map(seed.map((s) => [s.id, s]));
@@ -81,34 +71,26 @@ function newId(): string {
 }
 
 interface WorkoutContextValue {
-  /** False until persisted state has been loaded from disk. */
   isLoaded: boolean;
   workouts: Workout[];
   library: LibraryExercise[];
   presets: WorkoutPreset[];
   active: Workout | null;
-  /** True when an active workout is backgrounded (Home shown, workout kept). */
   minimized: boolean;
-  /** Weight unit preference (default "kg"). */
   unit: WeightUnit;
   setUnit: (unit: WeightUnit) => void;
-  /** Bodyweight in kg for strength ratings (null until the user sets it). */
   bodyweight: number | null;
   setBodyweight: (kg: number | null) => void;
-  /** Biological sex for strength standards (null until set). */
   sex: Sex | null;
   setSex: (sex: Sex) => void;
   startWorkout: () => void;
-  /** Start a workout pre-filled from a preset's exercises. */
   startWorkoutFromPreset: (preset: WorkoutPreset) => void;
   minimizeWorkout: () => void;
   resumeWorkout: () => void;
   createPreset: (name: string, exercises: PresetExercise[]) => WorkoutPreset;
   updatePreset: (id: string, patch: Partial<Pick<WorkoutPreset, "name" | "exercises">>) => void;
   deletePreset: (id: string) => void;
-  /** Add a library exercise to the active workout (duplicates are allowed). */
   addExercise: (exercise: LibraryExercise) => void;
-  /** Create a custom library exercise and return it (does not add to a workout). */
   createExercise: (name: string, muscleGroups: string[]) => LibraryExercise;
   updateExercise: (
     id: string,
@@ -116,21 +98,16 @@ interface WorkoutContextValue {
   ) => void;
   deleteExercise: (id: string) => void;
   removeExercise: (workoutExerciseId: string) => void;
-  /** Move an exercise within the active workout by `dir` (-1 up, +1 down). */
   moveExercise: (workoutExerciseId: string, dir: -1 | 1) => void;
   setExerciseNote: (workoutExerciseId: string, note: string) => void;
-  /** Append a new set, pre-filled from the exercise's previous set. */
   addSet: (workoutExerciseId: string) => void;
   updateSet: (workoutExerciseId: string, setId: string, patch: SetPatch) => void;
   removeSet: (workoutExerciseId: string, setId: string) => void;
   finishWorkout: () => void;
   discardWorkout: () => void;
   deleteWorkout: (workoutId: string) => void;
-  /** The just-finished workout to show a summary for, or null. */
   summary: Workout | null;
-  /** Dismiss the post-workout summary screen. */
   dismissSummary: () => void;
-  /** Finished-workout data points for one library exercise, oldest → newest. */
   progressFor: (exerciseId: string) => ProgressPoint[];
 }
 
@@ -143,13 +120,11 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
   const [presets, setPresets] = useState<WorkoutPreset[]>([]);
   const [active, setActive] = useState<Workout | null>(null);
   const [minimized, setMinimized] = useState(false);
-  /** The just-finished workout, shown as a post-workout summary until dismissed. */
   const [summary, setSummary] = useState<Workout | null>(null);
   const [unit, setUnit] = useState<WeightUnit>("kg");
   const [bodyweight, setBodyweight] = useState<number | null>(null);
   const [sex, setSex] = useState<Sex | null>(null);
 
-  // Load persisted state once on mount.
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -165,7 +140,7 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
       setWorkouts(storedWorkouts);
       setLibrary(storedLibrary.length > 0 ? reconcileLibrary(storedLibrary) : defaultLibrary());
       setPresets(storedPresets);
-      // Restore an in-progress workout (only if it hasn't been finished).
+      // Restore an in-progress workout only if it wasn't already finished.
       const restoredActive =
         storedActive.workout && storedActive.workout.finishedAt === null
           ? storedActive.workout
@@ -190,8 +165,7 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // Persist on change (only after the initial load, so we never clobber disk
-  // with the empty initial state).
+  // Guard on isLoaded so we never clobber stored data with the empty initial state.
   useEffect(() => {
     if (isLoaded) saveJSON(STORAGE_KEYS.workouts, workouts);
   }, [isLoaded, workouts]);
@@ -224,7 +198,6 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
         exerciseId: pe.exerciseId,
         name: pe.name,
         note: "",
-        // One empty set per target set in the template (at least one).
         sets: Array.from({ length: Math.max(1, pe.sets || 1) }, () => ({
           id: newId(),
           reps: 0,
@@ -270,7 +243,6 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
             exerciseId: exercise.id,
             name: exercise.name,
             note: "",
-            // Start with one empty set ready to fill in.
             sets: [{ id: newId(), reps: 0, weight: 0 }],
           },
         ],
@@ -296,7 +268,7 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
         ...(patch.muscleGroups !== undefined ? { muscleGroups: patch.muscleGroups } : {}),
       };
       setLibrary((list) => list.map((e) => (e.id === id ? { ...e, ...clean } : e)));
-      // Keep the in-progress workout's snapshot name in sync on rename.
+      // Keep the active workout's snapshot name in sync on rename.
       if (clean.name !== undefined) {
         const renamed = clean.name;
         setActive((w) =>
@@ -428,8 +400,7 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
     (exerciseId: string): ProgressPoint[] => {
       const points: ProgressPoint[] = [];
       for (const w of workouts) {
-        // Combine every entry of this exercise in the workout — it may appear
-        // more than once (e.g. Back Squat added twice).
+        // Combine every entry of this exercise — it can appear more than once.
         const sets = w.exercises.filter((e) => e.exerciseId === exerciseId).flatMap((e) => e.sets);
         if (sets.length === 0) continue;
         const best = sets.reduce<WorkoutSet | null>(

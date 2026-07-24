@@ -13,18 +13,9 @@ const checkoutSchema = z.object({
   plan: z.enum(["monthly", "annual"]),
 });
 
-/**
- * Create a Stripe Checkout Session and hand its URL back to the app, which
- * opens it in an in-app browser. Payment therefore runs outside the App Store /
- * Play Store billing systems.
- *
- * The session URL is created here (authenticated with the session JWT) rather
- * than by the app navigating to a page on our site with a token in the query
- * string — URLs leak through browser history, referrers and the in-app-browser
- * handoff, and a session JWT is a 30-day credential.
- *
- * Note this route grants nothing. Pro is only ever unlocked by the webhook.
- */
+// Creates the Checkout session here (authenticated with the session JWT) rather
+// than having the app open a page with the token in the URL — URLs leak via
+// history/referrers and the JWT is a 30-day credential. Grants nothing; the webhook does.
 export async function POST(req: Request): Promise<NextResponse> {
   if (!isBillingConfigured()) {
     return NextResponse.json({ error: "billing_not_configured" }, { status: 503 });
@@ -46,8 +37,7 @@ export async function POST(req: Request): Promise<NextResponse> {
   const stripe = getStripe();
 
   try {
-    // Reuse the customer across checkouts so a resubscribe lands on the same
-    // record (and the billing portal shows the full history).
+    // Reuse the customer so a resubscribe lands on the same record.
     let customerId = user.stripeCustomerId;
     if (!customerId) {
       const customer = await stripe.customers.create({
@@ -62,13 +52,10 @@ export async function POST(req: Request): Promise<NextResponse> {
       mode: "subscription",
       customer: customerId,
       line_items: [{ price: priceIdFor(parsed.data.plan), quantity: 1 }],
-      // Both are how the webhook maps the payment back to our user. client_
-      // reference_id rides on the session; subscription_data.metadata sticks to
-      // the subscription itself, which is what later renewal events carry.
+      // How the webhook maps the payment to our user: client_reference_id rides on
+      // the session; subscription_data.metadata sticks to the subscription (renewals carry it).
       client_reference_id: user.id,
       subscription_data: { metadata: { userId: user.id } },
-      // The user already got their free time via the no-card trial, so checkout
-      // is a straight paid subscription with no Stripe trial period.
       success_url: `${config.publicBaseUrl}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${config.publicBaseUrl}/billing/cancel`,
       allow_promotion_codes: true,

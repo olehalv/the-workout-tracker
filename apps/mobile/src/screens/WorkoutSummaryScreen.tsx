@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Button, Card, Stat, StatGrid } from "../components/ui";
 import { MusclesTrainedCard, StrengthSummaryCard } from "../components/WorkoutRecap";
 import { theme } from "../theme";
 import { elapsedMs, formatDuration, formatTimeOfDay } from "../workouts/time";
@@ -14,7 +15,7 @@ interface PersonalRecord {
   reps: number;
 }
 
-/** Exercises in `finished` whose heaviest set beat their best in every prior workout. */
+// Exercises whose heaviest set beat their best in every prior workout.
 function newPRs(finished: Workout, workouts: Workout[]): PersonalRecord[] {
   const prevBest = new Map<string, number>();
   for (const w of workouts) {
@@ -24,7 +25,6 @@ function newPRs(finished: Workout, workouts: Workout[]): PersonalRecord[] {
       if (t) prevBest.set(ex.exerciseId, Math.max(prevBest.get(ex.exerciseId) ?? 0, t.weight));
     }
   }
-  // Best set this session per exercise (heaviest weight).
   const bestNow = new Map<string, PersonalRecord>();
   for (const ex of finished.exercises) {
     const t = topSet(ex);
@@ -41,11 +41,7 @@ function newPRs(finished: Workout, workouts: Workout[]): PersonalRecord[] {
   return prs;
 }
 
-/**
- * Post-workout summary shown right after finishing. Free (no Pro gate): a recap
- * of the session's stats, personal records, the muscles it trained (same body
- * map as the Me tab), and a strength read-out.
- */
+// Post-workout recap shown right after finishing. Intentionally free — no Pro gate.
 export function WorkoutSummaryScreen() {
   const { summary, dismissSummary, workouts, unit } = useWorkouts();
   const [savePresetOpen, setSavePresetOpen] = useState(false);
@@ -72,17 +68,20 @@ export function WorkoutSummaryScreen() {
         </Text>
       </View>
 
-      <View style={styles.statsGrid}>
+      <StatGrid style={styles.statsGrid}>
         {stats.map((s) => (
-          <View key={s.label} style={styles.stat}>
-            <Text style={styles.statValue}>{s.value}</Text>
-            <Text style={styles.statLabel}>{s.label}</Text>
-          </View>
+          <Stat
+            key={s.label}
+            style={styles.statTile}
+            valueSize={24}
+            label={s.label}
+            value={s.value}
+          />
         ))}
-      </View>
+      </StatGrid>
 
       {prs.length > 0 ? (
-        <View style={styles.prCard}>
+        <Card padding={5} style={styles.prCard}>
           <Text style={styles.prCardTitle}>🏆 New personal records</Text>
           {prs.map((pr) => (
             <View key={pr.name} style={styles.prRow}>
@@ -92,18 +91,13 @@ export function WorkoutSummaryScreen() {
               </Text>
             </View>
           ))}
-        </View>
+        </Card>
       ) : null}
 
       <MusclesTrainedCard workout={summary} />
       <StrengthSummaryCard workout={summary} />
 
-      <Pressable
-        style={({ pressed }) => [styles.done, pressed && styles.pressed]}
-        onPress={dismissSummary}
-      >
-        <Text style={styles.doneText}>Done</Text>
-      </Pressable>
+      <Button title="Done" onPress={dismissSummary} style={styles.done} />
 
       {summary.exercises.length > 0 ? (
         <Pressable onPress={() => setSavePresetOpen(true)} hitSlop={6} style={styles.savePreset}>
@@ -153,37 +147,13 @@ const styles = StyleSheet.create({
     marginTop: theme.space(1),
   },
   statsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: theme.space(3),
     marginBottom: theme.space(4),
   },
-  stat: {
+  statTile: {
     flexGrow: 1,
     flexBasis: "45%",
-    backgroundColor: theme.colors.surface,
-    borderColor: theme.colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: theme.radius.md,
-    paddingVertical: theme.space(4),
-    paddingHorizontal: theme.space(4),
-  },
-  statValue: {
-    color: theme.colors.text,
-    fontSize: 24,
-    fontWeight: "700",
-  },
-  statLabel: {
-    color: theme.colors.textMuted,
-    fontSize: 13,
-    marginTop: theme.space(1),
   },
   prCard: {
-    backgroundColor: theme.colors.surface,
-    borderColor: theme.colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: theme.radius.md,
-    padding: theme.space(5),
     marginBottom: theme.space(4),
   },
   prCardTitle: {
@@ -210,16 +180,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   done: {
-    backgroundColor: theme.colors.accent,
-    borderRadius: theme.radius.md,
-    paddingVertical: theme.space(4),
-    alignItems: "center",
     marginTop: theme.space(2),
-  },
-  doneText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "700",
   },
   savePreset: {
     alignItems: "center",
@@ -230,8 +191,5 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     fontSize: 14,
     fontWeight: "600",
-  },
-  pressed: {
-    opacity: 0.6,
   },
 });

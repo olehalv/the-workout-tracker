@@ -10,7 +10,6 @@ import {
   verifyAdminPassword,
 } from "@/server/auth/adminAuth";
 
-/** Guards the mutating actions below so they can't run without an admin session. */
 async function requireAdmin(): Promise<void> {
   if (!(await isAdminAuthed())) {
     redirect("/admin/login");

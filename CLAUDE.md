@@ -15,8 +15,11 @@ visualize strength progress over time.
   - Progressive-overload graphs (strength/volume trends per exercise over time).
 - **Design language:** modern, **dark mode**, minimalistic.
 - **Data ownership:** all workout data — workouts, exercises, sets, stats, history
-  — stays **locally on the device**. The only server-side data is the **user
-  account** (Apple id, email, plan/billing), stored by the `web` app in Postgres.
+  — stays **on the user's own devices**: the local device (AsyncStorage) plus a
+  mirror in the **user's own iCloud** (CloudKit-backed private storage, iOS only)
+  so a new phone restores everything. It never touches *our* servers. The only
+  server-side data is the **user account** (Apple id, email, plan/billing), stored
+  by the `web` app in Postgres. See the mobile Storage section for the sync model.
 - **Auth:** Sign in with Apple, handled in the app UI. The identity token is
   verified by the `web` app's `POST /api/auth/apple` route, which upserts the user
   in Postgres and returns a session JWT plus the user (id, email, plan).
@@ -155,6 +158,17 @@ over HTTP).
     from `EXPO_PUBLIC_USER_API_URL`, defaults to `http://localhost:3000`; see
     `apps/mobile/.env.example`); the returned user includes `plan` (free/pro).
   - `src/screens/LoginScreen.tsx`, `src/theme.ts` (dark tokens).
+- **Shared UI kit — `src/components/ui/` (reuse it; don't re-copy styles).** The
+  dark/minimal design language is componentized here so screens compose instead of
+  duplicating `StyleSheet` blocks: `Button` (primary/secondary/danger/dashed, md/sm,
+  optional Ionicon), `Card` (surface panel, `padding` in `theme.space` steps),
+  `Input` (surface text field), `SectionLabel` (the uppercase muted heading),
+  `ScreenHeader` (tab + modal headers — pass `action` for the Cancel/Done text
+  button), `Stat`/`StatGrid` (the stat tiles), `Segmented` (settings-style toggles:
+  `variant` buttons|pill, `tone` for pills on a surface card), and `common` (the
+  `surface`/`pressed`/`disabled` style fragments). Barrel-exported from
+  `src/components/ui/index.ts`. Add new reusable primitives here rather than
+  re-deriving them in a screen; extend a component's props before forking a copy.
 - Navigation: a lightweight custom bottom tab bar in `src/navigation/AppTabs.tsx`
   (no navigation library / native module — state-based screen switching) with
   four tabs: **Workouts**, **Templates**, **Exercises** (heading "Exercises &
@@ -290,15 +304,47 @@ over HTTP).
   overlays a "Requires Pro" button when `locked`. Used on the exercise progress
   chart + older history rows (`ExerciseProgressModal.tsx`, latest session stays
   visible) and the muscle-activity + strength-ratings cards (`ProfileScreen.tsx`).
-- Storage: local, on-device via `@react-native-async-storage/async-storage`
-  (bundled in Expo Go). Kept behind `src/storage/storage.ts` (`loadJSON`/`saveJSON`
-  + `STORAGE_KEYS`) so the backing store is swappable to `expo-sqlite` later if
-  progress aggregation ever needs it. Chose AsyncStorage + JSON over SQLite/MMKV
-  because a single user's history is tiny and it needs zero native config.
+- Storage: **local-first with an iCloud backup mirror**, both behind
+  `src/storage/storage.ts` (`loadJSON`/`saveJSON` + `STORAGE_KEYS` — the single
+  swap point; only `WorkoutContext` calls it). AsyncStorage
+  (`@react-native-async-storage/async-storage`, bundled in Expo Go) stays the fast,
+  offline, always-available source of truth. On top of it, synced keys are mirrored
+  to the **user's own iCloud** via `react-native-cloud-storage`
+  (`CloudStorageScope.AppData` — a hidden, CloudKit-backed private container, so no
+  1 MB key-value cap; iOS only, `Platform.OS === "ios"`), so a fresh install on a
+  new phone restores instead of starting empty.
+  - **Reconciliation is last-write-wins per key**, decided by a timestamped
+    envelope (`{ __mwtEnvelope, updatedAt, data }`) written to both tiers. On load,
+    both are read and the newer one wins, seeding whichever side is stale/missing;
+    `saveJSON` writes local immediately and pushes to iCloud on an ~800 ms trailing
+    debounce. Pre-envelope (legacy raw) values are treated as oldest, so existing
+    installs seed iCloud on first run. This is **not** record-level merge: two
+    devices editing while both offline lose the earlier writer's whole key — an
+    accepted tradeoff for single-user / one-device-at-a-time use (CloudKit-record
+    modelling would be the next step up). `isCloudBackupAvailable()` exposes the
+    (cached) availability probe; the Me tab shows an "iCloud backup on/off" row via
+    the library's `useIsCloudAvailable()` hook.
+  - The in-progress `active` workout is **excluded** from the iCloud mirror
+    (`SYNCED_KEYS`): it's transient device state (you don't swap phones mid-set) and
+    it churns on every set edit. Workouts, library, presets and settings sync.
+  - **Requires a native dev build — iCloud does NOT work in Expo Go** (needs iCloud
+    entitlements + a container, which only a native build has). Needs a paid Apple
+    Developer account and an iCloud container `iCloud.dev.olehalv.theworkouttracker`
+    on the App ID with the **iCloud (CloudKit + Documents)** capability. `app.json`
+    wires the `react-native-cloud-storage` config plugin; run `expo prebuild` /
+    rebuild the dev client after changing it.
+  - **CloudKit environment footgun:** the plugin's `iCloudContainerEnvironment` is
+    set to `Development` (matches a dev-build / development provisioning profile).
+    CloudKit **Development and Production are separate databases — records do NOT
+    carry over.** This MUST become `Production` (or be driven per EAS build profile)
+    before TestFlight/App Store, or released users get an empty Production container.
+  - The abstraction stays swappable to `expo-sqlite` later if progress aggregation
+    outgrows in-memory scans.
 - Monorepo note: `metro.config.js` is configured to resolve hoisted deps from the
   repo root (`watchFolders` + `nodeModulesPaths`). Keep it when adding packages.
 - `app.json`: `userInterfaceStyle: "dark"`, `ios.usesAppleSignIn: true`,
-  `expo-apple-authentication` plugin. Bundle id / Android package:
+  `expo-apple-authentication` + `react-native-cloud-storage` (iCloud backup) config
+  plugins. Bundle id / Android package:
   `dev.olehalv.theworkouttracker` (the `web` app's `APPLE_CLIENT_IDS` must match the
   iOS bundle id, since it's the Apple token audience).
 
@@ -396,6 +442,9 @@ psql -d the_workout_tracker -c "update users set plan='free', paid_until=null, \
   `src/server/db/schema.ts`, run `npm run db:generate`, commit the SQL in
   `apps/web/drizzle/`, then `db:migrate`.
 - **UI:** dark, minimal, modern. Keep the marketing site tiny.
+- **Comments:** don't write useless comments. Only keep a comment when it's 100%
+  necessary — i.e. it explains *why* something non-obvious is done, a real gotcha,
+  or intent the code can't convey. Never narrate *what* the code plainly does.
 - **Expo / React Native facts change fast — verify, don't recall.** Expo SDKs and
   Expo Go change behavior release to release (which modules are bundled in Expo
   Go, config-plugin requirements, `app.json` keys, prebuild flags, API
@@ -421,6 +470,14 @@ Next steps:
   persisting the rest-timer default length. If progress aggregation outgrows
   in-memory scans, migrate the store behind `src/storage/storage.ts` to
   `expo-sqlite`.
+- iCloud backup: wired end-to-end (local-first + `react-native-cloud-storage`
+  mirror) but only exercisable in a **dev build**, not Expo Go, and so far only
+  against the CloudKit **Development** environment. Before shipping: flip
+  `iCloudContainerEnvironment` to `Production` in `app.json` (or drive it per EAS
+  profile), ensure the iCloud container + capability exist on the App ID, and
+  verify restore on a second device. Consider a manual "Back up now" action and
+  surfacing last-sync time. True concurrent multi-device sync (record-level merge)
+  is out of scope — current model is last-write-wins per key.
 - Payments: the Stripe flow is wired end-to-end (paywall → in-app browser →
   Checkout → webhook → entitlement) but has only run in **test mode**. Going live
   is account configuration, not code: live-mode product + prices, a **saved**

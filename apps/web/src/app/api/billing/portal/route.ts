@@ -7,12 +7,8 @@ import { config, isBillingConfigured } from "@/server/config";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/**
- * Open the Stripe billing portal, where the user updates their card, sees
- * invoices, or cancels. Same in-app-browser pattern as checkout — we hand back
- * a one-shot URL. Cancelling there fires a webhook that clears Pro, so we don't
- * need any cancel handling of our own.
- */
+// Hands back a Stripe billing-portal URL. Cancelling there fires a webhook that
+// clears Pro, so we need no cancel handling of our own.
 export async function POST(req: Request): Promise<NextResponse> {
   if (!isBillingConfigured()) {
     return NextResponse.json({ error: "billing_not_configured" }, { status: 503 });

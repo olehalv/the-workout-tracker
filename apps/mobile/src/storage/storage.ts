@@ -1,26 +1,16 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Platform } from "react-native";
+import { CloudStorage, CloudStorageScope } from "react-native-cloud-storage";
 
 /**
- * Tiny JSON-over-AsyncStorage repository. All workout data lives on-device
- * (see CLAUDE.md). Kept behind these two helpers so the backing store can be
- * swapped (e.g. expo-sqlite) later without touching callers.
+ * Local-first JSON storage with an iCloud backup mirror (iOS only).
+ *
+ * AsyncStorage is the fast, offline source of truth; synced keys are also
+ * mirrored to the user's own iCloud so a new phone restores instead of starting
+ * empty. Reconciliation is last-write-wins per key by the envelope timestamp —
+ * not record-level merge, so two devices editing while both offline lose the
+ * earlier writer's whole key (accepted for single-user use).
  */
-export async function loadJSON<T>(key: string, fallback: T): Promise<T> {
-  try {
-    const raw = await AsyncStorage.getItem(key);
-    return raw === null ? fallback : (JSON.parse(raw) as T);
-  } catch {
-    return fallback;
-  }
-}
-
-export async function saveJSON<T>(key: string, value: T): Promise<void> {
-  try {
-    await AsyncStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    // Best-effort persistence; a failed write shouldn't crash the app.
-  }
-}
 
 export const STORAGE_KEYS = {
   workouts: "mwt.workouts.v1",
@@ -29,3 +19,134 @@ export const STORAGE_KEYS = {
   settings: "mwt.settings.v1",
   active: "mwt.active.v1",
 } as const;
+
+// `active` is excluded: it's transient in-progress state and churns every set edit.
+const SYNCED_KEYS = new Set<string>([
+  STORAGE_KEYS.workouts,
+  STORAGE_KEYS.library,
+  STORAGE_KEYS.presets,
+  STORAGE_KEYS.settings,
+]);
+
+const CLOUD_SCOPE = CloudStorageScope.AppData;
+const cloudPath = (key: string) => `/${key}.json`;
+const CLOUD_WRITE_DEBOUNCE_MS = 800;
+
+type Envelope<T> = { __mwtEnvelope: 1; updatedAt: number; data: T };
+
+function wrap<T>(data: T, updatedAt: number): Envelope<T> {
+  return { __mwtEnvelope: 1, updatedAt, data };
+}
+
+function isEnvelope<T>(value: unknown): value is Envelope<T> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    (value as { __mwtEnvelope?: unknown }).__mwtEnvelope === 1
+  );
+}
+
+// Legacy pre-envelope values are treated as oldest, so existing installs seed iCloud.
+function parseEnvelope<T>(raw: string): Envelope<T> {
+  const parsed = JSON.parse(raw);
+  return isEnvelope<T>(parsed) ? parsed : wrap(parsed as T, 0);
+}
+
+const cloudEnabled = Platform.OS === "ios";
+
+let availabilityCache: { value: boolean; at: number } | null = null;
+const AVAILABILITY_TTL_MS = 15_000;
+
+async function cloudAvailable(): Promise<boolean> {
+  if (!cloudEnabled) return false;
+  const now = Date.now();
+  if (availabilityCache && now - availabilityCache.at < AVAILABILITY_TTL_MS) {
+    return availabilityCache.value;
+  }
+  try {
+    const value = await CloudStorage.isCloudAvailable();
+    availabilityCache = { value, at: now };
+    return value;
+  } catch {
+    availabilityCache = { value: false, at: now };
+    return false;
+  }
+}
+
+async function readLocal<T>(key: string): Promise<Envelope<T> | null> {
+  try {
+    const raw = await AsyncStorage.getItem(key);
+    return raw === null ? null : parseEnvelope<T>(raw);
+  } catch {
+    return null;
+  }
+}
+
+async function writeLocal<T>(key: string, env: Envelope<T>): Promise<void> {
+  try {
+    await AsyncStorage.setItem(key, JSON.stringify(env));
+  } catch {}
+}
+
+async function readCloud<T>(key: string): Promise<Envelope<T> | null> {
+  if (!(await cloudAvailable())) return null;
+  try {
+    if (!(await CloudStorage.exists(cloudPath(key), CLOUD_SCOPE))) return null;
+    const raw = await CloudStorage.readFile(cloudPath(key), CLOUD_SCOPE);
+    return parseEnvelope<T>(raw);
+  } catch {
+    return null;
+  }
+}
+
+async function writeCloud<T>(key: string, env: Envelope<T>): Promise<void> {
+  if (!(await cloudAvailable())) return;
+  try {
+    await CloudStorage.writeFile(cloudPath(key), JSON.stringify(env), CLOUD_SCOPE);
+  } catch {}
+}
+
+const pendingCloudWrites = new Map<string, ReturnType<typeof setTimeout>>();
+
+function writeCloudDebounced<T>(key: string, env: Envelope<T>): void {
+  const existing = pendingCloudWrites.get(key);
+  if (existing) clearTimeout(existing);
+  pendingCloudWrites.set(
+    key,
+    setTimeout(() => {
+      pendingCloudWrites.delete(key);
+      void writeCloud(key, env);
+    }, CLOUD_WRITE_DEBOUNCE_MS),
+  );
+}
+
+// Returns the newer of local/cloud by timestamp and seeds whichever side is stale.
+export async function loadJSON<T>(key: string, fallback: T): Promise<T> {
+  const synced = SYNCED_KEYS.has(key);
+  const [local, cloud] = await Promise.all([
+    readLocal<T>(key),
+    synced ? readCloud<T>(key) : Promise.resolve(null),
+  ]);
+
+  if (cloud && (!local || local.updatedAt < cloud.updatedAt)) {
+    await writeLocal(key, cloud);
+    return cloud.data;
+  }
+
+  if (!local) return fallback;
+
+  if (synced && (!cloud || cloud.updatedAt < local.updatedAt)) {
+    void writeCloud(key, local);
+  }
+  return local.data;
+}
+
+export async function saveJSON<T>(key: string, value: T): Promise<void> {
+  const env = wrap(value, Date.now());
+  await writeLocal(key, env);
+  if (SYNCED_KEYS.has(key)) writeCloudDebounced(key, env);
+}
+
+export function isCloudBackupAvailable(): Promise<boolean> {
+  return cloudAvailable();
+}

@@ -4,12 +4,7 @@ import { theme } from "../theme";
 import { elapsedMs, formatClock, useNow } from "../workouts/time";
 import { useWorkouts } from "../workouts/WorkoutContext";
 
-/**
- * Floating "Resume workout" control shown on the tab screens (except Workouts,
- * which has its own resume button) while a workout is minimized. Displays the
- * live elapsed time and jumps back into the workout on tap. The rest-timer pill
- * takes priority over this — see AppTabs.
- */
+// Floating "Resume workout" control (live elapsed time) shown while minimized.
 export function ResumeBar() {
   const { active, resumeWorkout } = useWorkouts();
   const now = useNow(active !== null);

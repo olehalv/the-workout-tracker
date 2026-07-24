@@ -6,26 +6,17 @@ import type { MuscleActivity } from "../workouts/muscleStats";
 import type { Sex } from "../workouts/strengthStandards";
 import { type BodyFigure, FEMALE, MALE } from "./bodyMapData";
 
-/** Untrained-muscle fill and the fully-saturated (most-trained) color. */
-const BASE = "#2C2F36";
-const HOT = theme.colors.accent;
-/** Whole-body base fill (drawn under the muscles via the outline). */
+const BASE = "#2C2F36"; // untrained muscle fill
+const HOT = theme.colors.accent; // most-trained
 const BODY = "#2A2D34";
-/** Non-muscle anatomy: head, neck, hands, feet, joints. */
-const NEUTRAL = "#3A3D44";
-/** Fill for non-muscle slugs that read better in their own shade (else NEUTRAL). */
-const NEUTRAL_FILL: Record<string, string> = { hair: "#2E313A" };
-/** Body contour + muscle-separation seam colors (line-art look). */
+const NEUTRAL = "#3A3D44"; // non-muscle anatomy
+const NEUTRAL_FILL: Record<string, string> = { hair: "#2E313A" }; // per-slug overrides of NEUTRAL
 const OUTLINE = "#6A7079";
 const SEAM = "#454A54";
 
-/**
- * Library muscle slug → our muscle group(s). A region tinted by more than one
- * group takes its hottest contributor (the library has no separate "lats" path,
- * so its back "upper-back" covers both Upper Back and Lats; abs+obliques are both
- * Core; tibialis is grouped with Calves; adductors follow overall leg training).
- * Slugs with no entry (head, hair, neck, hands, feet, knees, ankles) stay neutral.
- */
+// Library muscle slug → our muscle group(s), taking the hottest contributor. The
+// library has no separate "lats" path, so its "upper-back" covers Upper Back + Lats;
+// abs+obliques → Core; tibialis → Calves. Unlisted slugs (head, hands, …) stay neutral.
 const SLUG_TO_GROUPS: Record<string, string[]> = {
   chest: ["Chest"],
   deltoids: ["Shoulders"],
@@ -45,7 +36,6 @@ const SLUG_TO_GROUPS: Record<string, string[]> = {
   hamstring: ["Hamstrings"],
 };
 
-/** Blend two #rrggbb colors; t=0 → a, t=1 → b. */
 function lerpHex(a: string, b: string, t: number): string {
   const ai = Number.parseInt(a.slice(1), 16);
   const bi = Number.parseInt(b.slice(1), 16);
@@ -55,7 +45,6 @@ function lerpHex(a: string, b: string, t: number): string {
   return `#${((1 << 24) | (r << 16) | (g << 8) | bl).toString(16).slice(1)}`;
 }
 
-/** Fill for one library region: neutral, untrained, or a heat tint. */
 function regionFill(slug: string, activity: MuscleActivity): string {
   const groups = SLUG_TO_GROUPS[slug];
   if (!groups) return NEUTRAL_FILL[slug] ?? NEUTRAL;
@@ -66,15 +55,13 @@ function regionFill(slug: string, activity: MuscleActivity): string {
   return lerpHex(BASE, HOT, Math.min(1, t));
 }
 
-/** Pad a "minX minY w h" viewBox outward a touch so the outline stroke at the
- * figure's edges (e.g. the crown, which sits on the top edge) isn't clipped. */
+// Pad the viewBox so the outline stroke at the figure's edges isn't clipped.
 function padViewBox(viewBox: string): string {
   const [x, y, w, h] = viewBox.split(/\s+/).map(Number);
   const p = h * 0.02;
   return `${x - p} ${y - p} ${w + 2 * p} ${h + 2 * p}`;
 }
 
-/** Evenly-spaced colors from untrained → most-trained, for a legend gradient. */
 export function heatRamp(steps: number): string[] {
   return Array.from({ length: steps }, (_, i) => lerpHex(BASE, HOT, i / (steps - 1)));
 }
@@ -97,7 +84,6 @@ function Figure({
           viewBox={padViewBox(figure.viewBox)}
           preserveAspectRatio="xMidYMid meet"
         >
-          {/* Whole-body base under the muscles. */}
           <Path d={figure.outline} fill={BODY} />
           {figure.regions.map((region) => {
             const fill = regionFill(region.slug, activity);
@@ -116,7 +102,6 @@ function Figure({
               </Fragment>
             );
           })}
-          {/* Body contour on top for a crisp outline. */}
           <Path
             d={figure.outline}
             fill="none"
@@ -132,7 +117,6 @@ function Figure({
   );
 }
 
-/** Front + back muscle figures tinted by how much each muscle was trained. */
 export function BodyMap({ activity, sex }: { activity: MuscleActivity; sex: Sex }) {
   const figures = sex === "female" ? FEMALE : MALE;
   return (

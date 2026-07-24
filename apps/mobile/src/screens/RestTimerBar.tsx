@@ -8,10 +8,7 @@ function fmt(seconds: number): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-/**
- * Rest-timer control shown above the workout footer. Idle: pick a length and
- * start. Running: a countdown with a progress bar, ±15s, and skip.
- */
+// Rest-timer control above the workout footer: pick a length / countdown, ±15s, skip.
 export function RestTimerBar({ timer }: { timer: RestTimer }) {
   const { running, remaining, duration, start, skip, addTime, setDuration } = timer;
 

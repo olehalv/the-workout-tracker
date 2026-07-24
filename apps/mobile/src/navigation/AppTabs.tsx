@@ -23,11 +23,7 @@ const TABS: Array<{ key: TabKey; label: string; icon: IconName; iconActive: Icon
   { key: "profile", label: "Me", icon: "person-outline", iconActive: "person" },
 ];
 
-/**
- * Bottom tab shell. A lightweight custom tab bar (no navigation library / native
- * module) that swaps between the three top-level screens. The active workout is
- * shown full-screen elsewhere and takes over these tabs until minimized/finished.
- */
+// Lightweight custom tab bar (no navigation library) swapping between top-level screens.
 export function AppTabs() {
   const { isLoaded, active } = useWorkouts();
   const { running } = useRestTimer();
@@ -43,8 +39,7 @@ export function AppTabs() {
 
   const renderTab = ({ key, label, icon, iconActive }: (typeof TABS)[number], glass: boolean) => {
     const selected = tab === key;
-    // On the glass bar the selected tab sits on an accent pill, so its icon/label
-    // go white for contrast; the plain bar keeps the accent-on-dark selected look.
+    // On the glass bar the selected tab sits on an accent pill → white for contrast.
     const onPill = glass && selected;
     const color = onPill ? "#FFFFFF" : selected ? theme.colors.accent : theme.colors.textMuted;
     return (
@@ -55,9 +50,7 @@ export function AppTabs() {
         accessibilityRole="tab"
         accessibilityState={{ selected }}
       >
-        {/* iOS 26 selected-tab pill: an accent glass surface the GlassContainer
-            merges with the bar. `backgroundColor` is the fallback so it still reads
-            as a solid accent pill on runtimes where the glass effect doesn't paint. */}
+        {/* Selected-tab pill; its style's backgroundColor is the fallback where glass doesn't paint. */}
         {onPill ? (
           <GlassView
             style={styles.selectedPill}
@@ -90,16 +83,13 @@ export function AppTabs() {
         {tab === "profile" ? <ProfileScreen /> : null}
       </View>
 
-      {/* Floating workout control: the rest-timer pill takes priority; otherwise,
-          off the Workouts tab (which has its own resume button), offer Resume.
-          Lifted above the glass capsule so it doesn't sit behind the floating bar. */}
+      {/* Rest pill takes priority; otherwise Resume off the Workouts tab. */}
       <View style={liquidGlassTabs ? styles.floatingAboveGlass : null}>
         {running ? <RestPill /> : active && tab !== "workouts" ? <ResumeBar /> : null}
       </View>
 
       {liquidGlassTabs ? (
-        // iOS 26+: a floating Liquid Glass capsule; the screens above scroll behind
-        // it. The GlassContainer lets the selected-tab pill merge into the bar.
+        // GlassContainer lets the selected-tab pill merge into the floating capsule.
         <GlassContainer spacing={16} style={styles.glassTabBar}>
           <GlassView
             style={styles.glassBarBg}
@@ -138,7 +128,7 @@ const styles = StyleSheet.create({
     paddingTop: theme.space(1),
     paddingBottom: theme.space(2),
   },
-  // iOS 26+ floating glass capsule: absolute so tab content scrolls beneath it.
+  // Absolute so tab content scrolls beneath the floating capsule.
   glassTabBar: {
     position: "absolute",
     left: theme.space(4),
@@ -149,8 +139,7 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
     overflow: "hidden",
   },
-  // The bar's own glass, filling the capsule. `backgroundColor` is the fallback so
-  // the floating bar still has a solid surface where the glass effect doesn't paint.
+  // backgroundColor is the fallback surface where the glass effect doesn't paint.
   glassBarBg: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: theme.colors.surface,
@@ -159,8 +148,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     paddingVertical: theme.space(2),
   },
-  // Accent pill behind the selected tab's icon/label (glass-frosted when supported,
-  // solid accent otherwise).
   selectedPill: {
     position: "absolute",
     top: 2,
@@ -170,7 +157,6 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius.md,
     backgroundColor: theme.colors.accent,
   },
-  // Keeps the Resume/Rest pill clear of the floating capsule.
   floatingAboveGlass: {
     marginBottom: GLASS_TAB_BAR_CLEARANCE,
   },

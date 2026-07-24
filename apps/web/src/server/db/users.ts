@@ -3,11 +3,8 @@ import type { AppleIdentity } from "../auth/appleAuth";
 import { db } from "./client";
 import { type NewUser, type Plan, type User, users } from "./schema";
 
-/**
- * Insert the Apple user on first sign-in, or update on return. Apple only sends
- * the email on the very first authorization, so we coalesce to avoid wiping a
- * stored email with null on later logins.
- */
+// Apple only sends the email on the first authorization, so coalesce to avoid
+// wiping a stored email with null on later logins.
 export async function upsertUserFromApple(identity: AppleIdentity): Promise<User> {
   const now = new Date();
   const [user] = await db
@@ -117,12 +114,8 @@ export async function deleteUser(id: string): Promise<User | null> {
 
 // --- Billing --------------------------------------------------------------
 
-/**
- * Grant the no-card free trial, once. The `is null` guard makes this idempotent
- * and un-farmable: a user who re-opens the paywall (or replays the request)
- * keeps their original end date rather than rolling a fresh window. Returns the
- * user either way, so the caller can just hand back the entitlement.
- */
+// The `is null` guard makes this idempotent/un-farmable: replaying keeps the
+// original end date rather than rolling a fresh window.
 export async function startTrial(id: string, days: number): Promise<User | null> {
   const now = new Date();
   const endsAt = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
@@ -157,16 +150,11 @@ export interface SubscriptionState {
   stripeSubscriptionId: string | null;
   stripeStatus: string | null;
   cancelAtPeriodEnd: boolean;
-  /** Period end from Stripe — also mirrored into `paidUntil` for /admin. */
   paidUntil: Date | null;
   plan: Plan;
 }
 
-/**
- * Write the subscription state a Stripe webhook just reported. This is the only
- * path that flips `plan` to "pro" from a payment — the browser redirect is not
- * trusted, since the user can close the tab before it ever fires.
- */
+// The only path that flips `plan` to "pro" from a payment (the webhook).
 export async function applySubscriptionState(
   id: string,
   state: SubscriptionState,

@@ -8,12 +8,8 @@ export interface LinePoint {
   value: number;
 }
 
-/**
- * Minimal progression line chart built from plain Views — no SVG/charting
- * dependency, so it renders identically in Expo Go. Each segment is a thin View
- * placed at the midpoint of two points and rotated about its own center (so no
- * `transformOrigin` is needed). The most recent point is emphasized.
- */
+// Progression line from plain Views (no SVG, so it renders in Expo Go). Each
+// segment is a thin View at two points' midpoint, rotated about its own center.
 export function LineChart({ data, height = 160 }: { data: LinePoint[]; height?: number }) {
   const [w, setW] = useState(0);
 
@@ -25,7 +21,7 @@ export function LineChart({ data, height = 160 }: { data: LinePoint[]; height?: 
   const range = max - min;
   const n = data.length;
 
-  // Vertical padding leaves room for dots + value labels near the edges.
+  // Padding leaves room for dots + value labels near the edges.
   const padTop = 22;
   const padBottom = 10;
   const usableH = Math.max(1, height - padTop - padBottom);

@@ -24,8 +24,7 @@ export function LoginScreen() {
       .catch((err) => {
         if (!mounted) return;
         setAvailable(false);
-        // A thrown error here usually means the native module isn't loaded
-        // (e.g. a broken/stale bundle) rather than a genuine lack of support.
+        // A throw here usually means the native module isn't loaded, not genuine unavailability.
         setUnavailableReason(err instanceof Error ? err.message : String(err));
       });
     return () => {

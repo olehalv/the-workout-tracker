@@ -8,11 +8,8 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-/**
- * Where Stripe Checkout sends the user after paying. This page is cosmetic —
- * the entitlement is granted by the webhook, not by anyone reaching this URL.
- * Its real job is the deep link back into the app.
- */
+// Cosmetic post-checkout page — the webhook grants entitlement, not this URL.
+// Its real job is the deep link back into the app.
 export default function BillingSuccessPage() {
   const returnUrl = `${config.appScheme}://billing/return`;
 

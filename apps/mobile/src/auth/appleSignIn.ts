@@ -1,6 +1,5 @@
 import * as AppleAuthentication from "expo-apple-authentication";
 
-/** Thrown when the user dismisses the Apple sign-in sheet. */
 export class AppleSignInCanceledError extends Error {
   constructor() {
     super("Apple sign-in was canceled.");
@@ -8,15 +7,11 @@ export class AppleSignInCanceledError extends Error {
   }
 }
 
-/** Whether Sign in with Apple is available on this device (iOS 13+). */
 export function isAppleAuthAvailable(): Promise<boolean> {
   return AppleAuthentication.isAvailableAsync();
 }
 
-/**
- * Triggers the native Sign in with Apple flow and returns the identity token
- * (a JWT) to send to the backend. Throws AppleSignInCanceledError on dismissal.
- */
+// Returns the identity token (a JWT) to send to the backend.
 export async function requestAppleIdentityToken(): Promise<string> {
   try {
     const credential = await AppleAuthentication.signInAsync({

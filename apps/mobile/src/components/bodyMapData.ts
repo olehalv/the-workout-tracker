@@ -22,16 +22,13 @@
  */
 
 export interface BodyRegion {
-  /** Library muscle slug (e.g. "chest", "upper-back"); mapped to our groups in BodyMap. */
+  // Library muscle slug (e.g. "chest", "upper-back"); mapped to our groups in BodyMap.
   slug: string;
-  /** One or more SVG path "d" strings that make up the region. */
   paths: string[];
 }
 
 export interface BodyFigure {
-  /** SVG viewBox for this figure. */
   viewBox: string;
-  /** Body silhouette outline path. */
   outline: string;
   regions: BodyRegion[];
 }

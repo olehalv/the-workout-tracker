@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Alert, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { Button, common, ScreenHeader, SectionLabel } from "../components/ui";
 import { tabScrollClearance } from "../navigation/tabBar";
 import { theme } from "../theme";
 import { elapsedMs, formatClock, useNow } from "../workouts/time";
@@ -29,7 +30,6 @@ function fmtDayLabel(ts: number): string {
   });
 }
 
-/** "Workouts" tab: start/resume a workout, pick a day, and review its history. */
 export function WorkoutsScreen() {
   const { workouts, active, unit, startWorkout, resumeWorkout, deleteWorkout } = useWorkouts();
   const [detail, setDetail] = useState<Workout | null>(null);
@@ -66,14 +66,11 @@ export function WorkoutsScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.eyebrow}>Progressive overload</Text>
-        <Text style={styles.title}>Workouts</Text>
-      </View>
+      <ScreenHeader eyebrow="Progressive overload" title="Workouts" style={styles.header} />
 
       {active ? (
         <Pressable
-          style={({ pressed }) => [styles.start, pressed && styles.pressed]}
+          style={({ pressed }) => [styles.start, pressed && common.pressed]}
           onPress={resumeWorkout}
         >
           <Text style={styles.startText}>Resume workout</Text>
@@ -84,22 +81,17 @@ export function WorkoutsScreen() {
         </Pressable>
       ) : (
         <>
-          <Pressable
-            style={({ pressed }) => [styles.start, pressed && styles.pressed]}
-            onPress={startWorkout}
-          >
-            <Text style={styles.startText}>Start workout</Text>
-          </Pressable>
-          <Pressable
-            style={({ pressed }) => [styles.secondary, pressed && styles.pressed]}
+          <Button title="Start workout" onPress={startWorkout} />
+          <Button
+            title="Start workout from template"
+            variant="secondary"
             onPress={() => setPickerOpen(true)}
-          >
-            <Text style={styles.secondaryText}>Start workout from template</Text>
-          </Pressable>
+            style={styles.startSecondary}
+          />
         </>
       )}
 
-      <Text style={styles.sectionLabel}>History</Text>
+      <SectionLabel style={styles.sectionLabel}>History</SectionLabel>
       <WeekCalendar selectedKey={selectedKey} marked={marked} onSelect={setSelectedTs} />
 
       <Text style={styles.dayLabel}>{fmtDayLabel(selectedTs)}</Text>
@@ -144,7 +136,7 @@ function HistoryRow({
     minute: "2-digit",
   });
   return (
-    <View style={styles.row}>
+    <View style={[common.surface, styles.row]}>
       <Pressable style={styles.rowMain} onPress={onOpen}>
         <Text style={styles.rowDate}>{time}</Text>
         <Text style={styles.rowMeta}>
@@ -170,19 +162,6 @@ const styles = StyleSheet.create({
   header: {
     marginBottom: theme.space(6),
   },
-  eyebrow: {
-    color: theme.colors.accent,
-    fontSize: 13,
-    fontWeight: "600",
-    textTransform: "uppercase",
-    letterSpacing: 1,
-  },
-  title: {
-    color: theme.colors.text,
-    fontSize: 30,
-    fontWeight: "700",
-    marginTop: theme.space(2),
-  },
   start: {
     alignItems: "center",
     paddingVertical: theme.space(4),
@@ -190,7 +169,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.accent,
   },
   startText: {
-    color: "#FFFFFF",
+    color: theme.colors.onAccent,
     fontSize: 16,
     fontWeight: "700",
   },
@@ -200,28 +179,11 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginTop: theme.space(1),
   },
-  secondary: {
-    alignItems: "center",
-    paddingVertical: theme.space(4),
-    borderRadius: theme.radius.md,
-    backgroundColor: theme.colors.surface,
-    borderColor: theme.colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
+  startSecondary: {
     marginTop: theme.space(3),
   },
-  secondaryText: {
-    color: theme.colors.text,
-    fontSize: 15,
-    fontWeight: "600",
-  },
   sectionLabel: {
-    color: theme.colors.textMuted,
-    fontSize: 13,
-    fontWeight: "600",
-    textTransform: "uppercase",
-    letterSpacing: 1,
     marginTop: theme.space(7),
-    marginBottom: theme.space(3),
   },
   dayLabel: {
     color: theme.colors.text,
@@ -249,10 +211,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: theme.colors.surface,
-    borderColor: theme.colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: theme.radius.md,
     padding: theme.space(4),
   },
   rowMain: {
@@ -273,8 +231,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
     paddingLeft: theme.space(3),
-  },
-  pressed: {
-    opacity: 0.6,
   },
 });

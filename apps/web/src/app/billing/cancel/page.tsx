@@ -7,7 +7,6 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-/** Where Stripe sends the user if they back out of checkout. Nothing changed. */
 export default function BillingCancelPage() {
   const returnUrl = `${config.appScheme}://billing/return`;
 

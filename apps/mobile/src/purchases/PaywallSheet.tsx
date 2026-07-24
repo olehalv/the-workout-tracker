@@ -20,19 +20,11 @@ const PERKS = [
   "Strength ratings for every lift",
 ];
 
-/**
- * The subscribe sheet — a dark bottom sheet.
- *
- * Two states, driven by whether the account still has its free trial:
- *  - eligible → the headline offer is the no-card trial (one tap, no browser),
- *    with "subscribe now" tucked underneath for anyone who'd rather just pay.
- *  - used up → the plan picker, which sends them to Stripe Checkout in an
- *    in-app browser. Payment does not go through the App Store.
- */
+// Two states by trial eligibility: eligible → one-tap no-card trial; used up →
+// the plan picker → Stripe Checkout (payment does not go through the App Store).
 export function PaywallSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const { entitlement, startFreeTrial, subscribe, busy } = usePurchases();
   const [plan, setPlan] = useState<ProPlan>(DEFAULT_PLAN);
-  // Lets a trial-eligible user skip straight to paying.
   const [showPlans, setShowPlans] = useState(false);
   // Keep the modal mounted through the exit animation so it can slide back down.
   const [mounted, setMounted] = useState(visible);
@@ -40,8 +32,8 @@ export function PaywallSheet({ visible, onClose }: { visible: boolean; onClose: 
 
   const offerTrial = entitlement.trialEligible && !showPlans;
 
-  // Drive the entrance/exit: backdrop fades in place, sheet slides up — so the
-  // scrim no longer travels with the sheet (Modal's own "slide" moved both).
+  // Backdrop fades in place while the sheet slides up, so the scrim doesn't travel
+  // with the sheet the way Modal's own "slide" moves both.
   useEffect(() => {
     if (visible) {
       setShowPlans(false);

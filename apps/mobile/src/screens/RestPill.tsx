@@ -10,10 +10,7 @@ function fmt(seconds: number): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-/**
- * Floating indicator shown on the tab screens while a rest is counting down for
- * a minimized workout. Tap to jump back into the workout; Skip ends the rest.
- */
+// Floating rest countdown shown on the tab screens while a workout is minimized.
 export function RestPill() {
   const { active, resumeWorkout } = useWorkouts();
   const { running, remaining, skip } = useRestTimer();

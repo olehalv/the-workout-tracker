@@ -11,6 +11,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { Button, Card, common } from "../components/ui";
 import { theme } from "../theme";
 import { useRestTimer } from "../workouts/RestTimerContext";
 import { elapsedMs, formatClock, formatTimeOfDay, useNow } from "../workouts/time";
@@ -29,13 +30,13 @@ import { ExerciseProgressModal } from "./ExerciseProgressModal";
 import { PresetFormModal } from "./PresetFormModal";
 import { RestTimerBar } from "./RestTimerBar";
 
-/** Parse a reps field: whole number ≥ 1, else 0 (treated as "not logged"). */
+// 0 means "not logged".
 function toReps(t: string): number {
   const n = Number.parseInt(t, 10);
   return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
-/** Parse a weight field: number ≥ 0 (0 = bodyweight), accepts comma decimals. */
+// 0 = bodyweight; accepts comma decimals.
 function toWeight(t: string): number {
   const n = Number.parseFloat(t.replace(",", "."));
   return Number.isFinite(n) && n >= 0 ? n : 0;
@@ -68,11 +69,7 @@ export function WorkoutScreen() {
 
   const elapsed = elapsedMs(active.startedAt, now);
 
-  // A workout is finishable once any set has reps logged.
   const hasLoggedSet = active.exercises.some((e) => e.sets.some((s) => s.reps > 0));
-
-  // Distinct exercises of the active workout, for "save as template" — each with
-  // its current set count as the template's target.
   const presetSeed = templateSeed(active);
 
   const confirmDiscard = () => {
@@ -82,8 +79,7 @@ export function WorkoutScreen() {
     ]);
   };
 
-  // Resolve a workout exercise back to its library entry for the progress view,
-  // falling back to a snapshot if it was since removed from the library.
+  // Falls back to a snapshot if the exercise was since removed from the library.
   const openProgress = (ex: WorkoutExercise) => {
     const found = library.find((l) => l.id === ex.exerciseId);
     setProgressExercise(
@@ -91,7 +87,6 @@ export function WorkoutScreen() {
     );
   };
 
-  // Edit the underlying library exercise (name / muscle group) mid-workout.
   const openEdit = (ex: WorkoutExercise) => {
     const found = library.find((l) => l.id === ex.exerciseId);
     if (found) setEditingExercise(found);
@@ -118,7 +113,7 @@ export function WorkoutScreen() {
           <Text style={styles.startedAt}>Started {formatTimeOfDay(active.startedAt)}</Text>
         </View>
         <Pressable
-          style={({ pressed }) => [styles.minimize, pressed && styles.pressed]}
+          style={({ pressed }) => [styles.minimize, pressed && common.pressed]}
           onPress={minimizeWorkout}
           hitSlop={8}
         >
@@ -136,15 +131,14 @@ export function WorkoutScreen() {
             key={ex.id}
             exercise={ex}
             unit={unit}
-            // The previous session excludes the active workout (not finished yet).
+            // Excludes the active workout — it isn't finished yet.
             previous={progressFor(ex.exerciseId).at(-1) ?? null}
             canMoveUp={i > 0}
             canMoveDown={i < active.exercises.length - 1}
             onMove={(dir) => moveExercise(ex.id, dir)}
             onAddSet={() => {
               addSet(ex.id);
-              // Adding a set = the previous one is done → start resting.
-              rest.start();
+              rest.start(); // the previous set is done → start resting
             }}
             onUpdateSet={(sid, patch) => updateSet(ex.id, sid, patch)}
             onRemoveSet={(sid) => removeSet(ex.id, sid)}
@@ -155,12 +149,12 @@ export function WorkoutScreen() {
           />
         ))}
 
-        <Pressable
-          style={({ pressed }) => [styles.addExercise, pressed && styles.pressed]}
+        <Button
+          title="+ Add exercise"
+          variant="dashed"
           onPress={() => setPickerOpen(true)}
-        >
-          <Text style={styles.addExerciseText}>+ Add exercise</Text>
-        </Pressable>
+          style={styles.addExercise}
+        />
 
         {active.exercises.length > 0 ? (
           <Pressable onPress={() => setSavePresetOpen(true)} hitSlop={6} style={styles.savePreset}>
@@ -172,23 +166,13 @@ export function WorkoutScreen() {
       <RestTimerBar timer={rest} />
 
       <View style={styles.footer}>
-        <Pressable
-          style={({ pressed }) => [styles.discard, pressed && styles.pressed]}
-          onPress={confirmDiscard}
-        >
-          <Text style={styles.discardText}>Discard</Text>
-        </Pressable>
-        <Pressable
+        <Button title="Discard" variant="danger" onPress={confirmDiscard} style={styles.discard} />
+        <Button
+          title="Finish"
           disabled={!hasLoggedSet}
-          style={({ pressed }) => [
-            styles.finish,
-            !hasLoggedSet && styles.disabled,
-            pressed && styles.pressed,
-          ]}
           onPress={finishWorkout}
-        >
-          <Text style={styles.finishText}>Finish</Text>
-        </Pressable>
+          style={styles.finish}
+        />
       </View>
 
       <ExercisePickerModal visible={pickerOpen} onClose={() => setPickerOpen(false)} />
@@ -246,7 +230,7 @@ function ExerciseCard({
   }, [previous, unit]);
 
   return (
-    <View style={styles.card}>
+    <Card style={styles.card}>
       <View style={styles.cardHeader}>
         <View style={styles.reorder}>
           <Pressable
@@ -313,7 +297,7 @@ function ExerciseCard({
       ))}
 
       <Pressable
-        style={({ pressed }) => [styles.addSet, pressed && styles.pressed]}
+        style={({ pressed }) => [styles.addSet, pressed && common.pressed]}
         onPress={onAddSet}
       >
         <Text style={styles.addSetText}>+ Add set</Text>
@@ -327,15 +311,12 @@ function ExerciseCard({
         onChangeText={onChangeNote}
         multiline
       />
-    </View>
+    </Card>
   );
 }
 
-/**
- * A single editable set: two inputs that *are* the set. Local text state backs
- * the fields (so partial/decimal entry works) while parsed numbers flow to the
- * store for live totals.
- */
+// Local text state backs the fields (so partial/decimal entry works) while parsed
+// numbers flow to the store for live totals.
 function SetRow({
   index,
   set,
@@ -356,7 +337,7 @@ function SetRow({
     set.weight > 0 ? String(toDisplayWeight(set.weight, unit)) : "",
   );
 
-  // Placeholders show last session's top set, so an empty field previews it.
+  // Empty fields preview last session's top set.
   const repsPlaceholder = previous ? String(previous.topReps) : "0";
   const weightPlaceholder = previous ? String(toDisplayWeight(previous.topWeight, unit)) : "0";
 
@@ -461,11 +442,6 @@ const styles = StyleSheet.create({
     paddingBottom: theme.space(6),
   },
   card: {
-    backgroundColor: theme.colors.surface,
-    borderColor: theme.colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: theme.radius.md,
-    padding: theme.space(4),
     marginBottom: theme.space(3),
   },
   cardHeader: {
@@ -580,18 +556,7 @@ const styles = StyleSheet.create({
     minHeight: 44,
   },
   addExercise: {
-    alignItems: "center",
-    paddingVertical: theme.space(4),
-    borderRadius: theme.radius.md,
-    borderColor: theme.colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderStyle: "dashed",
     marginTop: theme.space(1),
-  },
-  addExerciseText: {
-    color: theme.colors.accent,
-    fontSize: 15,
-    fontWeight: "600",
   },
   savePreset: {
     alignItems: "center",
@@ -610,33 +575,8 @@ const styles = StyleSheet.create({
   },
   discard: {
     flex: 1,
-    alignItems: "center",
-    paddingVertical: theme.space(4),
-    borderRadius: theme.radius.md,
-    borderColor: theme.colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-  },
-  discardText: {
-    color: theme.colors.danger,
-    fontSize: 16,
-    fontWeight: "600",
   },
   finish: {
     flex: 2,
-    alignItems: "center",
-    paddingVertical: theme.space(4),
-    borderRadius: theme.radius.md,
-    backgroundColor: theme.colors.accent,
-  },
-  finishText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  disabled: {
-    opacity: 0.4,
-  },
-  pressed: {
-    opacity: 0.6,
   },
 });

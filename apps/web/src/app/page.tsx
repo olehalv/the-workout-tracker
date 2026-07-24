@@ -1,6 +1,5 @@
 import Link from "next/link";
 
-/** Marketing landing page. Intentionally tiny: a pitch and store links. */
 export default function Home() {
   return (
     <div className="flex min-h-full flex-1 flex-col bg-black text-white">
@@ -99,7 +98,6 @@ function PlanCard({
   name: string;
   price: string;
   cadence: string;
-  /** Secondary billing option, e.g. "or $1/month". */
   priceNote?: string;
   badge?: string;
   tagline: string;

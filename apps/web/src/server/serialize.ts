@@ -1,11 +1,8 @@
 import { type Entitlement, resolveEntitlement } from "./billing/entitlement";
 import type { User } from "./db/schema";
 
-/**
- * What the mobile app sees about the signed-in user. `entitlement` is computed
- * here rather than in the app so "is Pro / is the trial still valid" has exactly
- * one implementation, on the side that owns the clock.
- */
+// What the mobile app sees. `entitlement` is computed here so Pro/trial status
+// has one implementation, on the side that owns the clock.
 export interface PublicUser {
   id: string;
   email: string | null;
@@ -22,7 +19,7 @@ export function toPublicUser(user: User): PublicUser {
   };
 }
 
-/** Full record for the admin dashboard (includes PII + billing). */
+// Full record for the admin dashboard (includes PII + billing).
 export interface AdminUser {
   id: string;
   appleUserId: string;
@@ -34,7 +31,6 @@ export interface AdminUser {
   stripeCustomerId: string | null;
   stripeStatus: string | null;
   cancelAtPeriodEnd: boolean;
-  /** Derived Pro access, so the dashboard shows what the user actually gets. */
   entitlement: Entitlement;
   createdAt: string;
   updatedAt: string;

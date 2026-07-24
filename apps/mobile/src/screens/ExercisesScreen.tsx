@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { Button, common, Input, ScreenHeader } from "../components/ui";
 import { tabScrollClearance } from "../navigation/tabBar";
 import { theme } from "../theme";
 import { type LibraryExercise, muscleLabel } from "../workouts/types";
@@ -7,10 +8,7 @@ import { useWorkouts } from "../workouts/WorkoutContext";
 import { ExerciseFormModal } from "./ExerciseFormModal";
 import { ExerciseProgressModal } from "./ExerciseProgressModal";
 
-/**
- * "Exercises & progress" tab: search and manage the exercise library (add with
- * muscle groups, edit, delete) and tap any exercise to view its progress history.
- */
+// "Exercises & progress" tab: manage the library and view per-exercise progress.
 export function ExercisesScreen() {
   const { library, workouts } = useWorkouts();
   const [progress, setProgress] = useState<LibraryExercise | null>(null);
@@ -43,26 +41,22 @@ export function ExercisesScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.eyebrow}>Library</Text>
-        <Text style={styles.title}>Exercises & progress</Text>
-      </View>
+      <ScreenHeader eyebrow="Library" title="Exercises & progress" style={styles.header} />
 
-      <TextInput
+      <Input
         style={styles.search}
         placeholder="Search exercises or muscle groups"
-        placeholderTextColor={theme.colors.textMuted}
         value={query}
         onChangeText={setQuery}
         autoCorrect={false}
       />
 
-      <Pressable
-        style={({ pressed }) => [styles.addBtn, pressed && styles.pressed]}
+      <Button
+        title="+ New exercise"
+        variant="dashed"
         onPress={() => setCreating(true)}
-      >
-        <Text style={styles.addBtnText}>+ New exercise</Text>
-      </Pressable>
+        style={styles.addBtn}
+      />
 
       <FlatList
         data={sorted}
@@ -72,7 +66,7 @@ export function ExercisesScreen() {
         renderItem={({ item }) => {
           const count = sessionCounts.get(item.id) ?? 0;
           return (
-            <View style={styles.row}>
+            <View style={[common.surface, styles.row]}>
               <Pressable style={styles.rowMain} onPress={() => setProgress(item)}>
                 <Text style={styles.rowName}>{item.name}</Text>
                 <Text style={styles.rowMeta}>
@@ -82,7 +76,7 @@ export function ExercisesScreen() {
                 </Text>
               </Pressable>
               <Pressable
-                style={({ pressed }) => [styles.editBtn, pressed && styles.pressed]}
+                style={({ pressed }) => [styles.editBtn, pressed && common.pressed]}
                 onPress={() => setEditing(item)}
                 hitSlop={6}
               >
@@ -117,44 +111,11 @@ const styles = StyleSheet.create({
   header: {
     marginBottom: theme.space(4),
   },
-  eyebrow: {
-    color: theme.colors.accent,
-    fontSize: 13,
-    fontWeight: "600",
-    textTransform: "uppercase",
-    letterSpacing: 1,
-  },
-  title: {
-    color: theme.colors.text,
-    fontSize: 30,
-    fontWeight: "700",
-    marginTop: theme.space(2),
-  },
   search: {
-    color: theme.colors.text,
-    backgroundColor: theme.colors.surface,
-    borderColor: theme.colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: theme.radius.md,
-    paddingHorizontal: theme.space(4),
-    paddingVertical: theme.space(3),
-    fontSize: 16,
     marginBottom: theme.space(3),
   },
   addBtn: {
-    alignItems: "center",
-    paddingVertical: theme.space(4),
-    borderRadius: theme.radius.md,
-    backgroundColor: theme.colors.surface,
-    borderColor: theme.colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderStyle: "dashed",
     marginBottom: theme.space(4),
-  },
-  addBtnText: {
-    color: theme.colors.accent,
-    fontSize: 15,
-    fontWeight: "600",
   },
   listContent: {
     paddingBottom: theme.space(6),
@@ -164,10 +125,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: theme.space(3),
-    backgroundColor: theme.colors.surface,
-    borderColor: theme.colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: theme.radius.md,
     paddingHorizontal: theme.space(4),
     paddingVertical: theme.space(3),
   },
@@ -195,8 +152,5 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     fontSize: 13,
     fontWeight: "600",
-  },
-  pressed: {
-    opacity: 0.6,
   },
 });
