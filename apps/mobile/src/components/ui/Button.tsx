@@ -118,13 +118,16 @@ const styles = StyleSheet.create({
   },
   sizeMd: {
     paddingVertical: theme.space(4),
+    paddingHorizontal: theme.space(5),
   },
   sizeSm: {
     paddingVertical: theme.space(3),
+    paddingHorizontal: theme.space(4),
     borderRadius: theme.radius.sm,
   },
   glassSizeSm: {
     paddingVertical: theme.space(3),
+    paddingHorizontal: theme.space(4),
     borderRadius: theme.radius.sm,
   },
   glassBorder: {

@@ -1,4 +1,5 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
+import { GlassPressable } from "../components/ui";
 import { theme } from "../theme";
 import { REST_STEP, type RestTimer } from "../workouts/RestTimerContext";
 
@@ -16,12 +17,9 @@ export function RestTimerBar({ timer }: { timer: RestTimer }) {
     const pct = Math.min(100, duration > 0 ? (remaining / duration) * 100 : 0);
     return (
       <View style={styles.bar}>
-        <Pressable
-          style={({ pressed }) => [styles.step, pressed && styles.pressed]}
-          onPress={() => addTime(-REST_STEP)}
-        >
+        <GlassPressable surfaceStyle={styles.step} onPress={() => addTime(-REST_STEP)}>
           <Text style={styles.stepText}>−15</Text>
-        </Pressable>
+        </GlassPressable>
 
         <View style={styles.center}>
           <Text style={styles.time}>{fmt(remaining)}</Text>
@@ -30,16 +28,18 @@ export function RestTimerBar({ timer }: { timer: RestTimer }) {
           </View>
         </View>
 
-        <Pressable
-          style={({ pressed }) => [styles.step, pressed && styles.pressed]}
-          onPress={() => addTime(REST_STEP)}
-        >
+        <GlassPressable surfaceStyle={styles.step} onPress={() => addTime(REST_STEP)}>
           <Text style={styles.stepText}>+15</Text>
-        </Pressable>
+        </GlassPressable>
 
-        <Pressable style={({ pressed }) => [styles.skip, pressed && styles.pressed]} onPress={skip}>
-          <Text style={styles.skipText}>Skip</Text>
-        </Pressable>
+        <GlassPressable
+          tint={theme.colors.accent}
+          surfaceStyle={styles.accentBtn}
+          fallbackStyle={styles.accentSolid}
+          onPress={skip}
+        >
+          <Text style={styles.accentText}>Skip</Text>
+        </GlassPressable>
       </View>
     );
   }
@@ -47,25 +47,21 @@ export function RestTimerBar({ timer }: { timer: RestTimer }) {
   return (
     <View style={styles.bar}>
       <Text style={styles.label}>Rest</Text>
-      <Pressable
-        style={({ pressed }) => [styles.step, pressed && styles.pressed]}
-        onPress={() => setDuration(duration - REST_STEP)}
-      >
+      <GlassPressable surfaceStyle={styles.step} onPress={() => setDuration(duration - REST_STEP)}>
         <Text style={styles.stepText}>−</Text>
-      </Pressable>
+      </GlassPressable>
       <Text style={styles.durationText}>{fmt(duration)}</Text>
-      <Pressable
-        style={({ pressed }) => [styles.step, pressed && styles.pressed]}
-        onPress={() => setDuration(duration + REST_STEP)}
-      >
+      <GlassPressable surfaceStyle={styles.step} onPress={() => setDuration(duration + REST_STEP)}>
         <Text style={styles.stepText}>+</Text>
-      </Pressable>
-      <Pressable
-        style={({ pressed }) => [styles.start, pressed && styles.pressed]}
+      </GlassPressable>
+      <GlassPressable
+        tint={theme.colors.accent}
+        surfaceStyle={styles.accentBtn}
+        fallbackStyle={styles.accentSolid}
         onPress={() => start()}
       >
-        <Text style={styles.startText}>Start rest</Text>
-      </Pressable>
+        <Text style={styles.accentText}>Start rest</Text>
+      </GlassPressable>
     </View>
   );
 }
@@ -134,29 +130,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
   },
-  start: {
+  accentBtn: {
     paddingHorizontal: theme.space(4),
     paddingVertical: theme.space(2),
     borderRadius: theme.radius.sm,
+    alignItems: "center",
+  },
+  accentSolid: {
     backgroundColor: theme.colors.accent,
   },
-  startText: {
+  accentText: {
     color: "#FFFFFF",
     fontSize: 14,
     fontWeight: "700",
-  },
-  skip: {
-    paddingHorizontal: theme.space(4),
-    paddingVertical: theme.space(2),
-    borderRadius: theme.radius.sm,
-    backgroundColor: theme.colors.accent,
-  },
-  skipText: {
-    color: "#FFFFFF",
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  pressed: {
-    opacity: 0.6,
   },
 });

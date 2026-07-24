@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { Alert, Modal, Pressable, StyleSheet, Text, View } from "react-native";
-import { Button, Input, ScreenHeader, SectionLabel } from "../components/ui";
+import { Alert, Modal, StyleSheet, Text, View } from "react-native";
+import { Button, GlassPressable, Input, ScreenHeader, SectionLabel } from "../components/ui";
 import { theme } from "../theme";
 import { MUSCLE_GROUPS } from "../workouts/defaultExercises";
 import type { LibraryExercise } from "../workouts/types";
@@ -94,13 +94,15 @@ export function ExerciseFormModal({
           {MUSCLE_GROUPS.map((group) => {
             const selected = groups.includes(group);
             return (
-              <Pressable
+              <GlassPressable
                 key={group}
-                style={[styles.chip, selected && styles.chipSelected]}
                 onPress={() => toggleGroup(group)}
+                tint={selected ? theme.colors.accent : undefined}
+                surfaceStyle={[styles.chip, !selected && styles.chipBorder]}
+                fallbackStyle={selected ? styles.chipSelected : styles.chipUnselected}
               >
                 <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{group}</Text>
-              </Pressable>
+              </GlassPressable>
             );
           })}
         </View>
@@ -164,13 +166,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.space(4),
     paddingVertical: theme.space(2),
     borderRadius: theme.radius.md,
+  },
+  chipBorder: {
     borderColor: theme.colors.border,
     borderWidth: StyleSheet.hairlineWidth,
+  },
+  chipUnselected: {
     backgroundColor: theme.colors.surface,
   },
   chipSelected: {
     backgroundColor: theme.colors.accent,
     borderColor: theme.colors.accent,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   chipText: {
     color: theme.colors.text,

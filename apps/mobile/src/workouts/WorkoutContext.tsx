@@ -98,7 +98,7 @@ interface WorkoutContextValue {
   ) => void;
   deleteExercise: (id: string) => void;
   removeExercise: (workoutExerciseId: string) => void;
-  moveExercise: (workoutExerciseId: string, dir: -1 | 1) => void;
+  reorderExercises: (from: number, to: number) => void;
   setExerciseNote: (workoutExerciseId: string, note: string) => void;
   addSet: (workoutExerciseId: string) => void;
   updateSet: (workoutExerciseId: string, setId: string, patch: SetPatch) => void;
@@ -296,14 +296,14 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
     );
   }, []);
 
-  const moveExercise = useCallback((workoutExerciseId: string, dir: -1 | 1) => {
+  const reorderExercises = useCallback((from: number, to: number) => {
     setActive((w) => {
       if (!w) return w;
-      const i = w.exercises.findIndex((e) => e.id === workoutExerciseId);
-      const j = i + dir;
-      if (i < 0 || j < 0 || j >= w.exercises.length) return w;
+      const n = w.exercises.length;
+      if (from === to || from < 0 || to < 0 || from >= n || to >= n) return w;
       const exercises = [...w.exercises];
-      [exercises[i], exercises[j]] = [exercises[j], exercises[i]];
+      const [moved] = exercises.splice(from, 1);
+      exercises.splice(to, 0, moved);
       return { ...w, exercises };
     });
   }, []);
@@ -447,7 +447,7 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
       updateExercise,
       deleteExercise,
       removeExercise,
-      moveExercise,
+      reorderExercises,
       setExerciseNote,
       addSet,
       updateSet,
@@ -481,7 +481,7 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
       updateExercise,
       deleteExercise,
       removeExercise,
-      moveExercise,
+      reorderExercises,
       setExerciseNote,
       addSet,
       updateSet,

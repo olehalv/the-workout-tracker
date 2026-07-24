@@ -159,11 +159,26 @@ over HTTP).
   re-resolve on a clean install — `rm -rf node_modules package-lock.json`; a plain
   `npm install` reconciles against existing `node_modules` and silently keeps the
   old version.)
+- **Reanimated / worklets are pinned EXACT — Expo Go footgun.** Hold-and-drag
+  reorder (the active-workout exercise list) uses `react-native-reorderable-list`,
+  which builds on `react-native-gesture-handler` + `react-native-reanimated` 4 (all
+  bundled in Expo Go on SDK 54; the root `GestureHandlerRootView` in
+  `app/_layout.tsx` is required for the gestures). **Reanimated hard-crashes on any
+  JS↔native version mismatch**, and Expo Go ships the exact native versions its SDK
+  pins — so `react-native-reanimated` (`4.1.1`) and `react-native-worklets`
+  (`0.5.1`) are pinned without a range. `expo install` / `npm update` float them to
+  newer patches that then crash Expo Go with "Exception in HostFunction"; keep both
+  matched to `expo/bundledNativeModules.json` when bumping the SDK. Reanimated 4
+  needs the New Architecture (SDK 54 default) and its worklets babel plugin, which
+  `babel-preset-expo` adds automatically — no `babel.config.js` needed.
+  `react-native-draggable-flatlist` does **not** work with reanimated 4 (its
+  published build ships v2-era worklets → crashes on import); don't reach for it.
 - Login (implemented): Sign in with Apple via `expo-apple-authentication`. The
   `identityToken` is POSTed to the `web` app, which returns a session JWT; the
   token + user are persisted with `expo-secure-store`. Source layout:
   - Entry is **`expo-router`** (`package.json` `main: expo-router/entry`); routes
-    live in `app/`. `app/_layout.tsx` mounts `AuthProvider` + the root `Stack`;
+    live in `app/`. `app/_layout.tsx` mounts `GestureHandlerRootView` +
+    `AuthProvider` + the root `Stack`;
     `app/login.tsx` is the signed-out route; `app/(app)/_layout.tsx` guards auth
     (redirects to `/login`), mounts the app providers, and gates the full-screen
     active workout / summary vs the tabs. (There is no `App.tsx` — the old
@@ -217,7 +232,8 @@ over HTTP).
 - Workout tracking (implemented): start/minimize/finish a workout, add exercises
   from a library (built-in seed + user-created custom, each with one or more
   **muscle groups**; editable/deletable — icon buttons for progress/edit/remove),
-  reorder exercises within a workout (up/down chevrons), log sets as inline
+  reorder exercises within a workout (hold-and-drag by the grip handle — see the
+  reanimated note above), log sets as inline
   editable reps × weight rows (first set auto-added; new sets pre-fill from the
   previous; **empty fields show last session's top set as placeholder**) + an
   always-present per-exercise note, and view per-exercise progress (top-set weight

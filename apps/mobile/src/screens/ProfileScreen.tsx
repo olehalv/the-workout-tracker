@@ -18,6 +18,7 @@ import {
   Button,
   Card,
   common,
+  GlassPressable,
   ScreenHeader,
   SectionLabel,
   Segmented,
@@ -37,14 +38,17 @@ const UNITS = [
   { key: "kg", label: "KG" },
   { key: "lbs", label: "LBS" },
 ] as const;
+
 const SEXES: Array<{ key: Sex; label: string }> = [
   { key: "male", label: "Male" },
   { key: "female", label: "Female" },
 ];
+
 const WINDOWS = [
   { key: "week", label: "This week" },
   { key: "all", label: "All time" },
 ] as const;
+
 type WindowKey = (typeof WINDOWS)[number]["key"];
 
 const LEGEND = heatRamp(6);
@@ -58,6 +62,13 @@ export function ProfileScreen() {
   const [muscleWindow, setMuscleWindow] = useState<WindowKey>("week");
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  const confirmSignOut = () => {
+    Alert.alert("Sign out?", "You'll need to sign in with Apple again to use the app.", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Sign out", style: "destructive", onPress: signOut },
+    ]);
+  };
 
   const confirmDeleteAccount = () => {
     Alert.alert(
@@ -285,26 +296,30 @@ export function ProfileScreen() {
           {/* On the free trial there's no Stripe customer yet, so offer the
               upgrade instead of a billing portal that has nothing in it. */}
           {entitlement.source === "trial" ? (
-            <Pressable
-              style={({ pressed }) => [styles.manageBtn, pressed && common.pressed]}
+            <Button
+              title="Subscribe"
+              variant="secondary"
+              size="sm"
               onPress={openPaywall}
-            >
-              <Text style={styles.manageText}>Subscribe</Text>
-            </Pressable>
+              style={styles.manageBtn}
+            />
           ) : entitlement.canManageBilling ? (
-            <Pressable
-              style={({ pressed }) => [styles.manageBtn, pressed && common.pressed]}
+            <Button
+              title="Manage subscription"
+              variant="secondary"
+              size="sm"
               onPress={manageSubscription}
               disabled={busy}
-            >
-              <Text style={styles.manageText}>Manage subscription</Text>
-            </Pressable>
+              style={styles.manageBtn}
+            />
           ) : null}
         </Card>
       ) : (
-        <Pressable
-          style={({ pressed }) => [styles.goPro, pressed && common.pressed]}
+        <GlassPressable
           onPress={openPaywall}
+          style={styles.goProWrap}
+          surfaceStyle={styles.goPro}
+          fallbackStyle={styles.goProSolid}
         >
           <Text style={styles.goProTitle}>Unlock everything with Pro</Text>
           <Text style={styles.goProBody}>
@@ -317,7 +332,7 @@ export function ProfileScreen() {
               {entitlement.trialEligible ? "Start free trial" : "See plans"}
             </Text>
           </View>
-        </Pressable>
+        </GlassPressable>
       )}
 
       <SectionLabel>Units</SectionLabel>
@@ -353,7 +368,7 @@ export function ProfileScreen() {
         </>
       )}
 
-      <Button title="Sign out" variant="danger" onPress={signOut} />
+      <Button title="Sign out" variant="danger" onPress={confirmSignOut} />
 
       <Pressable
         style={({ pressed }) => [styles.advancedHeader, pressed && common.pressed]}
@@ -703,18 +718,17 @@ const styles = StyleSheet.create({
     marginTop: theme.space(4),
     alignSelf: "flex-start",
   },
-  manageText: {
-    color: theme.colors.accent,
-    fontSize: 15,
-    fontWeight: "600",
+  goProWrap: {
+    marginBottom: theme.space(4),
   },
   goPro: {
-    backgroundColor: theme.colors.surface,
     borderColor: theme.colors.accent,
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: theme.radius.md,
     padding: theme.space(5),
-    marginBottom: theme.space(4),
+  },
+  goProSolid: {
+    backgroundColor: theme.colors.surface,
   },
   goProTitle: {
     color: theme.colors.text,

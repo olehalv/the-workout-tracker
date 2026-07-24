@@ -1,6 +1,7 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useEffect, useMemo, useState } from "react";
 import { Alert, FlatList, Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { ExerciseListRow } from "../components/ExerciseListRow";
 import { Button, common, Input, ScreenHeader, SectionLabel } from "../components/ui";
 import { theme } from "../theme";
 import {
@@ -38,7 +39,6 @@ export function PresetFormModal({
   const [selected, setSelected] = useState<SelItem[]>([]);
   const [query, setQuery] = useState("");
   const [creatingExercise, setCreatingExercise] = useState(false);
-  const [editingExercise, setEditingExercise] = useState<LibraryExercise | null>(null);
 
   const isEdit = preset !== null;
 
@@ -244,26 +244,14 @@ export function PresetFormModal({
           renderItem={({ item }) => {
             const count = counts.get(item.id) ?? 0;
             return (
-              <View style={[common.surface, styles.row]}>
-                <Pressable style={styles.rowMain} onPress={() => add(item.id, item.name)}>
-                  <Text style={styles.rowName}>{item.name}</Text>
-                  <Text style={styles.rowCategory}>
-                    {muscleLabel(item)}
-                    {item.custom ? " · custom" : ""}
-                    {count > 0 ? ` · ${count} in template` : ""}
-                  </Text>
-                </Pressable>
-                <Pressable
-                  style={({ pressed }) => [styles.editBtn, pressed && common.pressed]}
-                  onPress={() => setEditingExercise(item)}
-                  hitSlop={6}
-                >
-                  <Text style={styles.editText}>Edit</Text>
-                </Pressable>
-                <Pressable onPress={() => add(item.id, item.name)} hitSlop={6}>
-                  <Text style={styles.plus}>+</Text>
-                </Pressable>
-              </View>
+              <ExerciseListRow
+                name={item.name}
+                meta={`${muscleLabel(item)}${item.custom ? " · custom" : ""}${
+                  count > 0 ? ` · ${count} in template` : ""
+                }`}
+                onPress={() => add(item.id, item.name)}
+                showAdd
+              />
             );
           }}
         />
@@ -284,14 +272,11 @@ export function PresetFormModal({
         ) : null}
 
         <ExerciseFormModal
-          visible={creatingExercise || editingExercise !== null}
-          exercise={editingExercise}
+          visible={creatingExercise}
+          exercise={null}
           initialName={query.trim()}
           onCreated={onExerciseCreated}
-          onClose={() => {
-            setCreatingExercise(false);
-            setEditingExercise(null);
-          }}
+          onClose={() => setCreatingExercise(false)}
         />
       </View>
     </Modal>
@@ -410,44 +395,6 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     fontSize: 12,
     marginTop: theme.space(1),
-  },
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.space(3),
-    paddingHorizontal: theme.space(4),
-    paddingVertical: theme.space(3),
-  },
-  rowMain: {
-    flex: 1,
-  },
-  editBtn: {
-    paddingHorizontal: theme.space(3),
-    paddingVertical: theme.space(2),
-    borderRadius: theme.radius.sm,
-    borderColor: theme.colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-  },
-  editText: {
-    color: theme.colors.text,
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  rowName: {
-    color: theme.colors.text,
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  rowCategory: {
-    color: theme.colors.textMuted,
-    fontSize: 12,
-    marginTop: theme.space(1),
-  },
-  plus: {
-    color: theme.colors.accent,
-    fontSize: 24,
-    fontWeight: "600",
-    paddingHorizontal: theme.space(2),
   },
   saveBtn: {
     marginTop: theme.space(2),

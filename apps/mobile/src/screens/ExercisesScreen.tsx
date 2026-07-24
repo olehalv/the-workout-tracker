@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
-import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
-import { Button, common, Input, ScreenHeader } from "../components/ui";
+import { FlatList, StyleSheet, View } from "react-native";
+import { ExerciseListRow } from "../components/ExerciseListRow";
+import { Button, Input, ScreenHeader } from "../components/ui";
 import { tabScrollClearance } from "../navigation/tabBar";
 import { theme } from "../theme";
 import { type LibraryExercise, muscleLabel } from "../workouts/types";
@@ -66,29 +67,29 @@ export function ExercisesScreen() {
         contentContainerStyle={[styles.listContent, tabScrollClearance]}
         renderItem={({ item }) => {
           const count = sessionCounts.get(item.id) ?? 0;
+          const history = count === 0 ? "no history" : `${count} session${count === 1 ? "" : "s"}`;
           return (
-            <View style={[common.surface, styles.row]}>
-              <Pressable style={styles.rowMain} onPress={() => setProgress(item)}>
-                <Text style={styles.rowName}>{item.name}</Text>
-                <Text style={styles.rowMeta}>
-                  {muscleLabel(item)}
-                  {item.custom ? " · custom" : ""} ·{" "}
-                  {count === 0 ? "no history" : `${count} session${count === 1 ? "" : "s"}`}
-                </Text>
-              </Pressable>
-              <Pressable
-                style={({ pressed }) => [styles.editBtn, pressed && common.pressed]}
-                onPress={() => setEditing(item)}
-                hitSlop={6}
-              >
-                <Text style={styles.editText}>Edit</Text>
-              </Pressable>
-            </View>
+            <ExerciseListRow
+              name={item.name}
+              meta={`${muscleLabel(item)}${item.custom ? " · custom" : ""} · ${history}`}
+              onPress={() => setProgress(item)}
+            />
           );
         }}
       />
 
-      <ExerciseProgressModal exercise={progress} onClose={() => setProgress(null)} />
+      <ExerciseProgressModal
+        exercise={progress}
+        onClose={() => setProgress(null)}
+        onEdit={
+          progress
+            ? () => {
+                setEditing(progress);
+                setProgress(null);
+              }
+            : undefined
+        }
+      />
       <ExerciseFormModal
         visible={creating || editing !== null}
         exercise={editing}
@@ -121,37 +122,5 @@ const styles = StyleSheet.create({
   listContent: {
     paddingBottom: theme.space(6),
     gap: theme.space(2),
-  },
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.space(3),
-    paddingHorizontal: theme.space(4),
-    paddingVertical: theme.space(3),
-  },
-  rowMain: {
-    flex: 1,
-  },
-  rowName: {
-    color: theme.colors.text,
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  rowMeta: {
-    color: theme.colors.textMuted,
-    fontSize: 12,
-    marginTop: theme.space(1),
-  },
-  editBtn: {
-    paddingHorizontal: theme.space(3),
-    paddingVertical: theme.space(2),
-    borderRadius: theme.radius.sm,
-    borderColor: theme.colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-  },
-  editText: {
-    color: theme.colors.text,
-    fontSize: 13,
-    fontWeight: "600",
   },
 });

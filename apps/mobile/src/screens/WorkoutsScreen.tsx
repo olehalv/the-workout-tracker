@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Alert, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
-import { Button, common, ScreenHeader, SectionLabel } from "../components/ui";
+import { Button, common, GlassPressable, ScreenHeader, SectionLabel } from "../components/ui";
 import { tabScrollClearance } from "../navigation/tabBar";
 import { theme } from "../theme";
 import { elapsedMs, formatClock, useNow } from "../workouts/time";
@@ -69,8 +69,10 @@ export function WorkoutsScreen() {
       <ScreenHeader eyebrow="Progressive overload" title="Workouts" style={styles.header} />
 
       {active ? (
-        <Pressable
-          style={({ pressed }) => [styles.start, pressed && common.pressed]}
+        <GlassPressable
+          tint={theme.colors.accent}
+          surfaceStyle={styles.start}
+          fallbackStyle={styles.startSolid}
           onPress={resumeWorkout}
         >
           <Text style={styles.startText}>Resume workout</Text>
@@ -78,7 +80,7 @@ export function WorkoutsScreen() {
             {active.exercises.length} exercise{active.exercises.length === 1 ? "" : "s"} ·{" "}
             {formatClock(elapsedMs(active.startedAt, now))} elapsed
           </Text>
-        </Pressable>
+        </GlassPressable>
       ) : (
         <>
           <Button title="Start workout" onPress={startWorkout} />
@@ -167,6 +169,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: theme.space(4),
     borderRadius: theme.radius.md,
+  },
+  startSolid: {
     backgroundColor: theme.colors.accent,
   },
   startText: {

@@ -1,5 +1,8 @@
+import { GlassView } from "expo-glass-effect";
+import type { ReactNode } from "react";
 import { Pressable, type StyleProp, StyleSheet, Text, View, type ViewStyle } from "react-native";
 import { theme } from "../../theme";
+import { GLASS } from "./GlassPressable";
 
 export interface SegmentOption<T extends string> {
   key: T;
@@ -36,21 +39,57 @@ export function Segmented<T extends string>({
     >
       {options.map((opt) => {
         const active = value === opt.key;
+        const label = (
+          <Text
+            style={[grouped ? styles.pillText : styles.buttonText, active && styles.textActive]}
+          >
+            {opt.label}
+          </Text>
+        );
+        const shape = grouped ? styles.pillBtn : styles.button;
+
+        let content: ReactNode;
+        if (GLASS) {
+          if (grouped) {
+            content = active ? (
+              <GlassView
+                isInteractive
+                glassEffectStyle="regular"
+                tintColor={theme.colors.accent}
+                style={[shape, styles.segSurface]}
+              >
+                {label}
+              </GlassView>
+            ) : (
+              <View style={shape}>{label}</View>
+            );
+          } else {
+            content = (
+              <GlassView
+                isInteractive
+                glassEffectStyle="regular"
+                tintColor={active ? theme.colors.accent : undefined}
+                style={[shape, styles.segSurface, !active && styles.buttonGlassBorder]}
+              >
+                {label}
+              </GlassView>
+            );
+          }
+        } else {
+          content = (
+            <View style={[shape, active && (grouped ? styles.pillActive : styles.buttonActive)]}>
+              {label}
+            </View>
+          );
+        }
+
         return (
           <Pressable
             key={opt.key}
             onPress={() => onChange(opt.key)}
-            style={[
-              grouped ? styles.pillBtn : styles.button,
-              stretch && styles.stretch,
-              active && (grouped ? styles.pillActive : styles.buttonActive),
-            ]}
+            style={stretch ? styles.stretch : undefined}
           >
-            <Text
-              style={[grouped ? styles.pillText : styles.buttonText, active && styles.textActive]}
-            >
-              {opt.label}
-            </Text>
+            {content}
           </Pressable>
         );
       })}
@@ -106,6 +145,16 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     fontSize: 13,
     fontWeight: "600",
+  },
+  // Glass segments own their border/background, so drop the solid fill.
+  segSurface: {
+    overflow: "hidden",
+    backgroundColor: "transparent",
+    borderWidth: 0,
+  },
+  buttonGlassBorder: {
+    borderColor: theme.colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   stretch: {
     flex: 1,

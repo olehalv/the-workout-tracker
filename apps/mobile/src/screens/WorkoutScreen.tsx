@@ -5,13 +5,17 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
-import { Button, Card, common } from "../components/ui";
+import ReorderableList, {
+  type ReorderableListRenderItemInfo,
+  useIsActive,
+  useReorderableDrag,
+} from "react-native-reorderable-list";
+import { Button, Card, common, GlassPressable } from "../components/ui";
 import { theme } from "../theme";
 import { useRestTimer } from "../workouts/RestTimerContext";
 import { elapsedMs, formatClock, formatTimeOfDay, useNow } from "../workouts/time";
@@ -50,7 +54,7 @@ export function WorkoutScreen() {
     updateSet,
     removeSet,
     removeExercise,
-    moveExercise,
+    reorderExercises,
     setExerciseNote,
     finishWorkout,
     discardWorkout,
@@ -112,31 +116,26 @@ export function WorkoutScreen() {
           </Text>
           <Text style={styles.startedAt}>Started {formatTimeOfDay(active.startedAt)}</Text>
         </View>
-        <Pressable
-          style={({ pressed }) => [styles.minimize, pressed && common.pressed]}
-          onPress={minimizeWorkout}
-          hitSlop={8}
-        >
+        <Pressable onPress={minimizeWorkout} hitSlop={8}>
           <Text style={styles.minimizeText}>Minimize</Text>
         </Pressable>
       </View>
 
-      <ScrollView
+      <ReorderableList
+        data={active.exercises}
+        keyExtractor={(ex) => ex.id}
+        onReorder={({ from, to }) => reorderExercises(from, to)}
+        shouldUpdateActiveItem
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
-      >
-        {active.exercises.map((ex, i) => (
+        renderItem={({ item: ex }: ReorderableListRenderItemInfo<WorkoutExercise>) => (
           <ExerciseCard
-            key={ex.id}
             exercise={ex}
             unit={unit}
             // Excludes the active workout — it isn't finished yet.
             previous={progressFor(ex.exerciseId).at(-1) ?? null}
-            canMoveUp={i > 0}
-            canMoveDown={i < active.exercises.length - 1}
-            onMove={(dir) => moveExercise(ex.id, dir)}
             onAddSet={() => {
               addSet(ex.id);
               rest.start(); // the previous set is done → start resting
@@ -148,21 +147,28 @@ export function WorkoutScreen() {
             onOpenProgress={() => openProgress(ex)}
             onEdit={() => openEdit(ex)}
           />
-        ))}
+        )}
+        ListFooterComponent={
+          <>
+            <Button
+              title="+ Add exercise"
+              variant="dashed"
+              onPress={() => setPickerOpen(true)}
+              style={styles.addExercise}
+            />
 
-        <Button
-          title="+ Add exercise"
-          variant="dashed"
-          onPress={() => setPickerOpen(true)}
-          style={styles.addExercise}
-        />
-
-        {active.exercises.length > 0 ? (
-          <Pressable onPress={() => setSavePresetOpen(true)} hitSlop={6} style={styles.savePreset}>
-            <Text style={styles.savePresetText}>Save as template</Text>
-          </Pressable>
-        ) : null}
-      </ScrollView>
+            {active.exercises.length > 0 ? (
+              <Pressable
+                onPress={() => setSavePresetOpen(true)}
+                hitSlop={6}
+                style={styles.savePreset}
+              >
+                <Text style={styles.savePresetText}>Save as template</Text>
+              </Pressable>
+            ) : null}
+          </>
+        }
+      />
 
       <RestTimerBar timer={rest} />
 
@@ -200,9 +206,6 @@ function ExerciseCard({
   exercise,
   unit,
   previous,
-  canMoveUp,
-  canMoveDown,
-  onMove,
   onAddSet,
   onUpdateSet,
   onRemoveSet,
@@ -214,9 +217,6 @@ function ExerciseCard({
   exercise: WorkoutExercise;
   unit: WeightUnit;
   previous: ProgressPoint | null;
-  canMoveUp: boolean;
-  canMoveDown: boolean;
-  onMove: (dir: -1 | 1) => void;
   onAddSet: () => void;
   onUpdateSet: (setId: string, patch: Partial<Pick<WorkoutSet, "reps" | "weight">>) => void;
   onRemoveSet: (setId: string) => void;
@@ -225,40 +225,26 @@ function ExerciseCard({
   onOpenProgress: () => void;
   onEdit: () => void;
 }) {
+  const drag = useReorderableDrag();
+  const isActive = useIsActive();
   const previousLabel = useMemo(() => {
     if (!previous) return "No previous record";
     return `Previous: ${previous.topReps} × ${toDisplayWeight(previous.topWeight, unit)} ${unit}`;
   }, [previous, unit]);
 
   return (
-    <Card style={styles.card}>
+    <Card style={[styles.card, isActive && styles.cardActive]}>
       <View style={styles.cardHeader}>
-        <View style={styles.reorder}>
-          <Pressable
-            disabled={!canMoveUp}
-            onPress={() => onMove(-1)}
-            hitSlop={4}
-            style={styles.reorderBtn}
-          >
-            <Ionicons
-              name="chevron-up"
-              size={16}
-              color={canMoveUp ? theme.colors.textMuted : theme.colors.border}
-            />
-          </Pressable>
-          <Pressable
-            disabled={!canMoveDown}
-            onPress={() => onMove(1)}
-            hitSlop={4}
-            style={styles.reorderBtn}
-          >
-            <Ionicons
-              name="chevron-down"
-              size={16}
-              color={canMoveDown ? theme.colors.textMuted : theme.colors.border}
-            />
-          </Pressable>
-        </View>
+        <Pressable
+          onLongPress={drag}
+          delayLongPress={150}
+          disabled={isActive}
+          hitSlop={8}
+          style={styles.dragHandle}
+          accessibilityLabel="Drag to reorder exercise"
+        >
+          <Ionicons name="reorder-three" size={22} color={theme.colors.textMuted} />
+        </Pressable>
         <View style={styles.cardHeaderMain}>
           <Text style={styles.cardTitle}>{exercise.name}</Text>
           <Text style={styles.previous}>{previousLabel}</Text>
@@ -297,12 +283,14 @@ function ExerciseCard({
         />
       ))}
 
-      <Pressable
-        style={({ pressed }) => [styles.addSet, pressed && common.pressed]}
+      <GlassPressable
         onPress={onAddSet}
+        style={styles.addSetWrap}
+        surfaceStyle={styles.addSet}
+        fallbackStyle={styles.addSetSolid}
       >
         <Text style={styles.addSetText}>+ Add set</Text>
-      </Pressable>
+      </GlassPressable>
 
       <TextInput
         style={styles.noteInput}
@@ -450,17 +438,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: theme.space(1),
   },
-  minimize: {
-    paddingHorizontal: theme.space(3),
-    paddingVertical: theme.space(2),
-    borderRadius: theme.radius.sm,
-    borderColor: theme.colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-  },
   minimizeText: {
-    color: theme.colors.text,
-    fontSize: 13,
+    color: theme.colors.accent,
+    fontSize: 16,
     fontWeight: "600",
+    paddingLeft: theme.space(3),
   },
   eyebrow: {
     color: theme.colors.accent,
@@ -484,18 +466,25 @@ const styles = StyleSheet.create({
   card: {
     marginBottom: theme.space(3),
   },
+  cardActive: {
+    borderColor: theme.colors.accent,
+    shadowColor: "#000",
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 8,
+  },
   cardHeader: {
     flexDirection: "row",
     alignItems: "flex-start",
     gap: theme.space(3),
     marginBottom: theme.space(3),
   },
-  reorder: {
-    alignItems: "center",
+  dragHandle: {
     marginTop: -2,
-  },
-  reorderBtn: {
-    paddingVertical: 1,
+    paddingRight: theme.space(1),
+    alignItems: "center",
+    justifyContent: "center",
   },
   cardHeaderMain: {
     flex: 1,
@@ -588,14 +577,18 @@ const styles = StyleSheet.create({
     fontSize: 22,
     lineHeight: 24,
   },
+  addSetWrap: {
+    marginTop: theme.space(2),
+  },
   addSet: {
     alignItems: "center",
     paddingVertical: theme.space(3),
-    marginTop: theme.space(2),
     borderRadius: theme.radius.sm,
-    backgroundColor: theme.colors.background,
     borderColor: theme.colors.border,
     borderWidth: StyleSheet.hairlineWidth,
+  },
+  addSetSolid: {
+    backgroundColor: theme.colors.background,
   },
   addSetText: {
     color: theme.colors.accent,

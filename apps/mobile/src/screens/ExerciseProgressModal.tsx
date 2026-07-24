@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Modal, ScrollView, StyleSheet, Text, View } from "react-native";
 import { LineChart } from "../components/LineChart";
 import { ProGate } from "../components/ProGate";
-import { Card, ScreenHeader, SectionLabel, Stat, StatGrid } from "../components/ui";
+import { Button, Card, ScreenHeader, SectionLabel, Stat, StatGrid } from "../components/ui";
 import { usePurchases } from "../purchases/PurchaseContext";
 import { theme } from "../theme";
 import type { LibraryExercise, ProgressPoint } from "../workouts/types";
@@ -17,9 +17,11 @@ function fmtShort(ts: number): string {
 export function ExerciseProgressModal({
   exercise,
   onClose,
+  onEdit,
 }: {
   exercise: LibraryExercise | null;
   onClose: () => void;
+  onEdit?: () => void;
 }) {
   const { progressFor, unit } = useWorkouts();
   const { isPro } = usePurchases();
@@ -56,6 +58,17 @@ export function ExerciseProgressModal({
           action={{ label: "Done", onPress: onClose }}
           style={styles.header}
         />
+
+        {onEdit ? (
+          <Button
+            title="Edit exercise"
+            variant="secondary"
+            size="sm"
+            icon="create-outline"
+            onPress={onEdit}
+            style={styles.editBtn}
+          />
+        ) : null}
 
         {points.length === 0 ? (
           <View style={styles.emptyWrap}>
@@ -137,6 +150,10 @@ const styles = StyleSheet.create({
     paddingTop: theme.space(14),
   },
   header: {
+    marginBottom: theme.space(5),
+  },
+  editBtn: {
+    alignSelf: "flex-start",
     marginBottom: theme.space(5),
   },
   scrollContent: {

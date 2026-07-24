@@ -1,11 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { type ReactNode, useState } from "react";
-import { Pressable, type StyleProp, StyleSheet, Text, View, type ViewStyle } from "react-native";
+import { type StyleProp, StyleSheet, Text, View, type ViewStyle } from "react-native";
 import { PaywallSheet } from "../purchases/PaywallSheet";
 import { usePurchases } from "../purchases/PurchaseContext";
 import { PRO_PRICE_LABEL, PRO_TRIAL_DAYS } from "../purchases/plans";
 import { theme } from "../theme";
+import { GlassPressable } from "./ui";
 
 // Blurs Pro-only children and overlays a subscribe button when `locked`.
 // The paywall sheet is rendered here (not at the provider) so it presents inside
@@ -38,14 +39,16 @@ export function ProGate({
       />
       <View style={styles.overlay} pointerEvents="box-none">
         {!compact ? <Ionicons name="lock-closed" size={22} color={theme.colors.text} /> : null}
-        <Pressable
-          style={({ pressed }) => [styles.cta, pressed && styles.ctaPressed]}
+        <GlassPressable
+          tint={theme.colors.accent}
+          surfaceStyle={styles.cta}
+          fallbackStyle={styles.ctaSolid}
           onPress={() => setPaywallOpen(true)}
         >
           <Text style={styles.ctaText}>
             {entitlement.trialEligible ? "Try Pro free" : `Requires Pro · ${PRO_PRICE_LABEL}`}
           </Text>
-        </Pressable>
+        </GlassPressable>
         {!compact ? (
           <Text style={styles.hint}>
             {entitlement.trialEligible
@@ -77,13 +80,12 @@ const styles = StyleSheet.create({
     padding: theme.space(4),
   },
   cta: {
-    backgroundColor: theme.colors.accent,
     borderRadius: theme.radius.md,
     paddingHorizontal: theme.space(4),
     paddingVertical: theme.space(3),
   },
-  ctaPressed: {
-    opacity: 0.85,
+  ctaSolid: {
+    backgroundColor: theme.colors.accent,
   },
   ctaText: {
     color: "#FFFFFF",

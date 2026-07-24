@@ -1,5 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
+import { GlassPressable } from "../components/ui";
 import { theme } from "../theme";
 import { elapsedMs, formatClock, useNow } from "../workouts/time";
 import { useWorkouts } from "../workouts/WorkoutContext";
@@ -16,10 +17,11 @@ export function ResumeBar() {
 
   return (
     <View style={styles.wrap}>
-      <Pressable
-        style={({ pressed }) => [styles.pill, pressed && styles.pressed]}
+      <GlassPressable
+        tint={theme.colors.accent}
+        surfaceStyle={styles.pill}
+        fallbackStyle={styles.pillSolid}
         onPress={resumeWorkout}
-        accessibilityRole="button"
         accessibilityLabel={`Resume workout. ${formatClock(elapsed)} elapsed.`}
       >
         <Ionicons name="barbell" size={18} color="#FFFFFF" />
@@ -30,7 +32,7 @@ export function ResumeBar() {
           </Text>
         </View>
         <Text style={styles.time}>{formatClock(elapsed)}</Text>
-      </Pressable>
+      </GlassPressable>
     </View>
   );
 }
@@ -44,10 +46,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: theme.space(3),
-    backgroundColor: theme.colors.accent,
     borderRadius: theme.radius.lg,
     paddingHorizontal: theme.space(4),
     paddingVertical: theme.space(3),
+  },
+  pillSolid: {
+    backgroundColor: theme.colors.accent,
   },
   text: {
     flex: 1,
@@ -68,8 +72,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
     fontVariant: ["tabular-nums"],
-  },
-  pressed: {
-    opacity: 0.85,
   },
 });
