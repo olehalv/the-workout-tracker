@@ -11,28 +11,27 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useAuth } from "../../../src/auth/AuthContext";
-import { BodyMap, heatRamp } from "../../../src/components/BodyMap";
-import { ProGate } from "../../../src/components/ProGate";
+import { useAuth } from "../../../../src/auth/AuthContext";
+import { BodyMap, heatRamp } from "../../../../src/components/BodyMap";
+import { useMinimizedBarClearance } from "../../../../src/components/MinimizedWorkoutBar";
+import { ProGate } from "../../../../src/components/ProGate";
 import {
   Button,
   Card,
   common,
   GlassPressable,
-  ScreenHeader,
   SectionLabel,
   Segmented,
   Stat,
-} from "../../../src/components/ui";
-import { usePurchases } from "../../../src/purchases/PurchaseContext";
-import { PRO_TRIAL_DAYS } from "../../../src/purchases/plans";
-import { isCloudBackupAvailable } from "../../../src/storage/storage";
-import { theme } from "../../../src/theme";
-import { muscleActivity, startOfThisWeek } from "../../../src/workouts/muscleStats";
-import { type Sex, strengthProfile } from "../../../src/workouts/strengthStandards";
-import { fmtWeight, fromDisplayWeight, toDisplayWeight } from "../../../src/workouts/units";
-import { useWorkouts } from "../../../src/workouts/WorkoutContext";
+} from "../../../../src/components/ui";
+import { usePurchases } from "../../../../src/purchases/PurchaseContext";
+import { PRO_TRIAL_DAYS } from "../../../../src/purchases/plans";
+import { isCloudBackupAvailable } from "../../../../src/storage/storage";
+import { theme } from "../../../../src/theme";
+import { muscleActivity, startOfThisWeek } from "../../../../src/workouts/muscleStats";
+import { type Sex, strengthProfile } from "../../../../src/workouts/strengthStandards";
+import { fmtWeight, fromDisplayWeight, toDisplayWeight } from "../../../../src/workouts/units";
+import { useWorkouts } from "../../../../src/workouts/WorkoutContext";
 
 const UNITS = [
   { key: "kg", label: "KG" },
@@ -60,7 +59,7 @@ export default function ProfileTab() {
   const { isPro, entitlement, trialDaysLeft, busy, openPaywall, manageSubscription } =
     usePurchases();
   const [muscleWindow, setMuscleWindow] = useState<WindowKey>("week");
-  const insets = useSafeAreaInsets();
+  const clearance = useMinimizedBarClearance();
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -123,280 +122,280 @@ export default function ProfileTab() {
   const strengthReady = bodyweight !== null && sex !== null;
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <ScreenHeader
-          eyebrow="Account"
-          title={user?.email ?? "Apple account"}
-          titleSize={22}
-          style={styles.header}
-        >
-          <View style={[styles.planBadge, isPro ? styles.planPro : styles.planFree]}>
-            <Text style={[styles.planText, isPro && styles.planTextPro]}>
-              {isPro ? "Pro plan" : "Free plan"}
-            </Text>
-          </View>
-        </ScreenHeader>
+    <ScrollView
+      contentInsetAdjustmentBehavior="automatic"
+      style={styles.container}
+      contentContainerStyle={[styles.content, { paddingBottom: clearance + theme.space(6) }]}
+      showsVerticalScrollIndicator={false}
+    >
+      <SectionLabel tone="accent">Account</SectionLabel>
+      <View style={[common.surface, styles.padCard, styles.header]}>
+        <Text style={styles.account}>{user?.email ?? "Apple account"}</Text>
+        <View style={[styles.planBadge, isPro ? styles.planPro : styles.planFree]}>
+          <Text style={[styles.planText, isPro && styles.planTextPro]}>
+            {isPro ? "Pro plan" : "Free plan"}
+          </Text>
+        </View>
+      </View>
 
-        <SectionLabel>Strength ratings</SectionLabel>
-        <ProGate locked={!isPro} style={[common.surface, styles.padCard, styles.cardGap]}>
-          <View style={styles.bwRow}>
-            <View style={styles.bwField}>
-              <Text style={styles.fieldLabel}>Bodyweight</Text>
-              <View style={styles.bwInputWrap}>
-                <BodyweightInput
-                  key={unit}
-                  bodyweightKg={bodyweight}
-                  unit={unit}
-                  onChangeKg={setBodyweight}
-                />
-                <Text style={styles.bwUnit}>{unit}</Text>
-              </View>
-            </View>
-            <View style={styles.bwField}>
-              <Text style={styles.fieldLabel}>Sex</Text>
-              <Segmented
-                options={SEXES}
-                value={sex}
-                onChange={setSex}
-                variant="pill"
-                stretch
-                tone="background"
-                style={styles.sexSegment}
+      <SectionLabel>Strength ratings</SectionLabel>
+      <ProGate locked={!isPro} style={[common.surface, styles.padCard, styles.cardGap]}>
+        <View style={styles.bwRow}>
+          <View style={styles.bwField}>
+            <Text style={styles.fieldLabel}>Bodyweight</Text>
+            <View style={styles.bwInputWrap}>
+              <BodyweightInput
+                key={unit}
+                bodyweightKg={bodyweight}
+                unit={unit}
+                onChangeKg={setBodyweight}
               />
+              <Text style={styles.bwUnit}>{unit}</Text>
             </View>
           </View>
+          <View style={styles.bwField}>
+            <Text style={styles.fieldLabel}>Sex</Text>
+            <Segmented
+              options={SEXES}
+              value={sex}
+              onChange={setSex}
+              variant="pill"
+              stretch
+              tone="background"
+              style={styles.sexSegment}
+            />
+          </View>
+        </View>
 
-          {!strengthReady ? (
-            <Text style={styles.strengthHint}>
-              Enter your bodyweight and sex to rate your main lifts against general strength
-              standards.
-            </Text>
-          ) : strength.ratedCount === 0 ? (
-            <Text style={styles.strengthHint}>
-              Log Squat, Bench Press, Deadlift, or Overhead Press to see your rating.
-            </Text>
-          ) : (
-            <View style={styles.overall}>
-              <View>
-                <Text style={styles.overallLabel}>Overall</Text>
-                <Text style={styles.overallTier}>{strength.overallTier}</Text>
-              </View>
-              <Text style={styles.overallScore}>{strength.overallScore}</Text>
+        {!strengthReady ? (
+          <Text style={styles.strengthHint}>
+            Enter your bodyweight and sex to rate your main lifts against general strength
+            standards.
+          </Text>
+        ) : strength.ratedCount === 0 ? (
+          <Text style={styles.strengthHint}>
+            Log Squat, Bench Press, Deadlift, or Overhead Press to see your rating.
+          </Text>
+        ) : (
+          <View style={styles.overall}>
+            <View>
+              <Text style={styles.overallLabel}>Overall</Text>
+              <Text style={styles.overallTier}>{strength.overallTier}</Text>
             </View>
-          )}
+            <Text style={styles.overallScore}>{strength.overallScore}</Text>
+          </View>
+        )}
 
-          {strengthReady ? (
-            <View style={styles.liftList}>
-              {strength.lifts.map((l) => (
-                <View key={l.key} style={styles.liftRow}>
-                  <View style={styles.liftHead}>
-                    <Text style={styles.liftName}>{l.label}</Text>
-                    {l.tier ? (
-                      <Text style={styles.liftTier}>{l.tier}</Text>
-                    ) : (
-                      <Text style={styles.liftUnrated}>Not logged</Text>
-                    )}
-                  </View>
-                  <View style={styles.liftBar}>
-                    <View style={[styles.liftBarFill, { width: `${l.score}%` }]} />
-                  </View>
-                  <View style={styles.liftHead}>
+        {strengthReady ? (
+          <View style={styles.liftList}>
+            {strength.lifts.map((l) => (
+              <View key={l.key} style={styles.liftRow}>
+                <View style={styles.liftHead}>
+                  <Text style={styles.liftName}>{l.label}</Text>
+                  {l.tier ? (
+                    <Text style={styles.liftTier}>{l.tier}</Text>
+                  ) : (
+                    <Text style={styles.liftUnrated}>Not logged</Text>
+                  )}
+                </View>
+                <View style={styles.liftBar}>
+                  <View style={[styles.liftBarFill, { width: `${l.score}%` }]} />
+                </View>
+                <View style={styles.liftHead}>
+                  <Text style={styles.liftMeta}>
+                    {l.e1rm ? `Est. 1RM ${fmtWeight(l.e1rm, unit)}` : "—"}
+                  </Text>
+                  {l.kgToNext !== null && l.nextTier ? (
                     <Text style={styles.liftMeta}>
-                      {l.e1rm ? `Est. 1RM ${fmtWeight(l.e1rm, unit)}` : "—"}
+                      {fmtWeight(l.kgToNext, unit)} to {l.nextTier}
                     </Text>
-                    {l.kgToNext !== null && l.nextTier ? (
-                      <Text style={styles.liftMeta}>
-                        {fmtWeight(l.kgToNext, unit)} to {l.nextTier}
-                      </Text>
-                    ) : l.tier === "Elite" ? (
-                      <Text style={styles.liftMeta}>Elite 💪</Text>
-                    ) : null}
-                  </View>
+                  ) : l.tier === "Elite" ? (
+                    <Text style={styles.liftMeta}>Elite 💪</Text>
+                  ) : null}
+                </View>
+              </View>
+            ))}
+          </View>
+        ) : null}
+      </ProGate>
+
+      <View style={styles.muscleHeader}>
+        <SectionLabel style={styles.noMargin}>Muscle activity</SectionLabel>
+        <Segmented
+          options={WINDOWS}
+          value={muscleWindow}
+          onChange={setMuscleWindow}
+          variant="pill"
+        />
+      </View>
+
+      <ProGate locked={!isPro} style={[common.surface, styles.padCard, styles.cardGap]}>
+        <BodyMap activity={activity} sex={sex ?? "male"} />
+        {activity.totalSets === 0 ? (
+          <Text style={styles.muscleEmpty}>
+            {muscleWindow === "week"
+              ? "No sets logged this week yet. Train to light up your muscle map."
+              : "Log a workout to see which muscles you've been hitting."}
+          </Text>
+        ) : (
+          <>
+            <View style={styles.legend}>
+              <Text style={styles.legendLabel}>Less</Text>
+              <View style={styles.legendBar}>
+                {LEGEND.map((c) => (
+                  <View key={c} style={[styles.legendSwatch, { backgroundColor: c }]} />
+                ))}
+              </View>
+              <Text style={styles.legendLabel}>More</Text>
+            </View>
+
+            <View style={styles.rankList}>
+              <Text style={styles.rankHeading}>Most trained</Text>
+              {topTrained.map((m, i) => (
+                <View key={m.group} style={styles.rankRow}>
+                  <Text style={styles.rankPos}>{i + 1}</Text>
+                  <Text style={styles.rankName}>{m.group}</Text>
+                  <Text style={styles.rankSets}>
+                    {m.sets} set{m.sets === 1 ? "" : "s"}
+                  </Text>
                 </View>
               ))}
             </View>
-          ) : null}
-        </ProGate>
-
-        <View style={styles.muscleHeader}>
-          <SectionLabel style={styles.noMargin}>Muscle activity</SectionLabel>
-          <Segmented
-            options={WINDOWS}
-            value={muscleWindow}
-            onChange={setMuscleWindow}
-            variant="pill"
-          />
-        </View>
-
-        <ProGate locked={!isPro} style={[common.surface, styles.padCard, styles.cardGap]}>
-          <BodyMap activity={activity} sex={sex ?? "male"} />
-          {activity.totalSets === 0 ? (
-            <Text style={styles.muscleEmpty}>
-              {muscleWindow === "week"
-                ? "No sets logged this week yet. Train to light up your muscle map."
-                : "Log a workout to see which muscles you've been hitting."}
-            </Text>
-          ) : (
-            <>
-              <View style={styles.legend}>
-                <Text style={styles.legendLabel}>Less</Text>
-                <View style={styles.legendBar}>
-                  {LEGEND.map((c) => (
-                    <View key={c} style={[styles.legendSwatch, { backgroundColor: c }]} />
-                  ))}
-                </View>
-                <Text style={styles.legendLabel}>More</Text>
-              </View>
-
-              <View style={styles.rankList}>
-                <Text style={styles.rankHeading}>Most trained</Text>
-                {topTrained.map((m, i) => (
-                  <View key={m.group} style={styles.rankRow}>
-                    <Text style={styles.rankPos}>{i + 1}</Text>
-                    <Text style={styles.rankName}>{m.group}</Text>
-                    <Text style={styles.rankSets}>
-                      {m.sets} set{m.sets === 1 ? "" : "s"}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            </>
-          )}
-        </ProGate>
-
-        <View style={styles.statsRow}>
-          <Stat
-            style={styles.statTile}
-            valueSize={24}
-            value={`${workouts.length}`}
-            label="Workouts logged"
-          />
-        </View>
-
-        {isPro ? (
-          <Card style={styles.cardGap}>
-            <View style={styles.proHeader}>
-              <Text style={styles.proTitle}>Pro unlocked</Text>
-              {entitlement.source === "trial" ? (
-                <Text style={styles.proTrial}>
-                  {trialDaysLeft} day{trialDaysLeft === 1 ? "" : "s"} of free trial left
-                </Text>
-              ) : null}
-            </View>
-            <Text style={styles.proBody}>
-              {entitlement.source === "trial"
-                ? "You're on the free trial — no payment details needed. Subscribe before it ends to keep everything."
-                : entitlement.cancelAtPeriodEnd
-                  ? "Your subscription is set to end at the close of the current period."
-                  : "Progression charts, full history, the muscle map and strength ratings are all yours."}
-            </Text>
-            {/* On the free trial there's no Stripe customer yet, so offer the
-              upgrade instead of a billing portal that has nothing in it. */}
-            {entitlement.source === "trial" ? (
-              <Button
-                title="Subscribe"
-                variant="secondary"
-                size="sm"
-                onPress={openPaywall}
-                style={styles.manageBtn}
-              />
-            ) : entitlement.canManageBilling ? (
-              <Button
-                title="Manage subscription"
-                variant="secondary"
-                size="sm"
-                onPress={manageSubscription}
-                disabled={busy}
-                style={styles.manageBtn}
-              />
-            ) : null}
-          </Card>
-        ) : (
-          <GlassPressable
-            onPress={openPaywall}
-            style={styles.goProWrap}
-            surfaceStyle={styles.goPro}
-            fallbackStyle={styles.goProSolid}
-          >
-            <Text style={styles.goProTitle}>Unlock everything with Pro</Text>
-            <Text style={styles.goProBody}>
-              {entitlement.trialEligible
-                ? `Charts, full history, muscle map & strength ratings. ${PRO_TRIAL_DAYS} days free — no card required.`
-                : "Charts, full history, muscle map & strength ratings. From $0.83/month, cancel anytime."}
-            </Text>
-            <View style={styles.goProCta}>
-              <Text style={styles.goProCtaText}>
-                {entitlement.trialEligible ? "Start free trial" : "See plans"}
-              </Text>
-            </View>
-          </GlassPressable>
-        )}
-
-        <SectionLabel>Units</SectionLabel>
-        <Segmented options={UNITS} value={unit} onChange={setUnit} style={styles.unitSegment} />
-
-        {Platform.OS === "ios" && (
-          <>
-            <SectionLabel>Backup</SectionLabel>
-            <Card padding={5} style={styles.backupCard}>
-              <View style={styles.backupRow}>
-                <View
-                  style={[
-                    styles.backupDot,
-                    { backgroundColor: cloudAvailable ? theme.colors.accent : theme.colors.border },
-                  ]}
-                />
-                <Text style={styles.backupStatus}>
-                  {isExpoGo
-                    ? "iCloud backup needs a dev build"
-                    : cloudAvailable
-                      ? "iCloud backup on"
-                      : "iCloud backup off"}
-                </Text>
-              </View>
-              <Text style={styles.backupHint}>
-                {isExpoGo
-                  ? "iCloud isn't available in Expo Go. Run a development build to enable backup — your data is still saved on this device."
-                  : cloudAvailable
-                    ? "Your workouts, exercises and templates are backed up to your iCloud, so they restore automatically on a new phone."
-                    : "Sign in to iCloud in Settings to back up your data and restore it on a new phone."}
-              </Text>
-            </Card>
           </>
         )}
+      </ProGate>
 
-        <Button title="Sign out" variant="danger" onPress={confirmSignOut} />
+      <View style={styles.statsRow}>
+        <Stat
+          style={styles.statTile}
+          valueSize={24}
+          value={`${workouts.length}`}
+          label="Workouts logged"
+        />
+      </View>
 
-        <Pressable
-          style={({ pressed }) => [styles.advancedHeader, pressed && common.pressed]}
-          onPress={() => setAdvancedOpen((open) => !open)}
-          hitSlop={6}
-        >
-          <Text style={styles.advancedTitle}>Advanced</Text>
-          <Ionicons
-            name={advancedOpen ? "chevron-up" : "chevron-down"}
-            size={18}
-            color={theme.colors.textMuted}
-          />
-        </Pressable>
-
-        {advancedOpen ? (
-          <View style={styles.advancedBody}>
-            <Text style={styles.advancedHint}>
-              Permanently delete your account and every workout, exercise and template — on this
-              device and in iCloud. This can't be undone.
-            </Text>
-            <Button
-              title={deleting ? "Deleting…" : "Delete account and all data"}
-              variant="danger"
-              onPress={confirmDeleteAccount}
-              disabled={deleting}
-            />
+      {isPro ? (
+        <Card style={styles.cardGap}>
+          <View style={styles.proHeader}>
+            <Text style={styles.proTitle}>Pro unlocked</Text>
+            {entitlement.source === "trial" ? (
+              <Text style={styles.proTrial}>
+                {trialDaysLeft} day{trialDaysLeft === 1 ? "" : "s"} of free trial left
+              </Text>
+            ) : null}
           </View>
-        ) : null}
-      </ScrollView>
-    </View>
+          <Text style={styles.proBody}>
+            {entitlement.source === "trial"
+              ? "You're on the free trial — no payment details needed. Subscribe before it ends to keep everything."
+              : entitlement.cancelAtPeriodEnd
+                ? "Your subscription is set to end at the close of the current period."
+                : "Progression charts, full history, the muscle map and strength ratings are all yours."}
+          </Text>
+          {/* On the free trial there's no Stripe customer yet, so offer the
+              upgrade instead of a billing portal that has nothing in it. */}
+          {entitlement.source === "trial" ? (
+            <Button
+              title="Subscribe"
+              variant="secondary"
+              size="sm"
+              onPress={openPaywall}
+              style={styles.manageBtn}
+            />
+          ) : entitlement.canManageBilling ? (
+            <Button
+              title="Manage subscription"
+              variant="secondary"
+              size="sm"
+              onPress={manageSubscription}
+              disabled={busy}
+              style={styles.manageBtn}
+            />
+          ) : null}
+        </Card>
+      ) : (
+        <GlassPressable
+          onPress={openPaywall}
+          style={styles.goProWrap}
+          surfaceStyle={styles.goPro}
+          fallbackStyle={styles.goProSolid}
+        >
+          <Text style={styles.goProTitle}>Unlock everything with Pro</Text>
+          <Text style={styles.goProBody}>
+            {entitlement.trialEligible
+              ? `Charts, full history, muscle map & strength ratings. ${PRO_TRIAL_DAYS} days free — no card required.`
+              : "Charts, full history, muscle map & strength ratings. From $0.83/month, cancel anytime."}
+          </Text>
+          <View style={styles.goProCta}>
+            <Text style={styles.goProCtaText}>
+              {entitlement.trialEligible ? "Start free trial" : "See plans"}
+            </Text>
+          </View>
+        </GlassPressable>
+      )}
+
+      <SectionLabel>Units</SectionLabel>
+      <Segmented options={UNITS} value={unit} onChange={setUnit} style={styles.unitSegment} />
+
+      {Platform.OS === "ios" && (
+        <>
+          <SectionLabel>Backup</SectionLabel>
+          <Card padding={5} style={styles.backupCard}>
+            <View style={styles.backupRow}>
+              <View
+                style={[
+                  styles.backupDot,
+                  { backgroundColor: cloudAvailable ? theme.colors.accent : theme.colors.border },
+                ]}
+              />
+              <Text style={styles.backupStatus}>
+                {isExpoGo
+                  ? "iCloud backup needs a dev build"
+                  : cloudAvailable
+                    ? "iCloud backup on"
+                    : "iCloud backup off"}
+              </Text>
+            </View>
+            <Text style={styles.backupHint}>
+              {isExpoGo
+                ? "iCloud isn't available in Expo Go. Run a development build to enable backup — your data is still saved on this device."
+                : cloudAvailable
+                  ? "Your workouts, exercises and templates are backed up to your iCloud, so they restore automatically on a new phone."
+                  : "Sign in to iCloud in Settings to back up your data and restore it on a new phone."}
+            </Text>
+          </Card>
+        </>
+      )}
+
+      <Button title="Sign out" variant="danger" onPress={confirmSignOut} />
+
+      <Pressable
+        style={({ pressed }) => [styles.advancedHeader, pressed && common.pressed]}
+        onPress={() => setAdvancedOpen((open) => !open)}
+        hitSlop={6}
+      >
+        <Text style={styles.advancedTitle}>Advanced</Text>
+        <Ionicons
+          name={advancedOpen ? "chevron-up" : "chevron-down"}
+          size={18}
+          color={theme.colors.textMuted}
+        />
+      </Pressable>
+
+      {advancedOpen ? (
+        <View style={styles.advancedBody}>
+          <Text style={styles.advancedHint}>
+            Permanently delete your account and every workout, exercise and template — on this
+            device and in iCloud. This can't be undone.
+          </Text>
+          <Button
+            title={deleting ? "Deleting…" : "Delete account and all data"}
+            variant="danger"
+            onPress={confirmDeleteAccount}
+            disabled={deleting}
+          />
+        </View>
+      ) : null}
+    </ScrollView>
   );
 }
 
@@ -435,12 +434,15 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.background,
   },
   content: {
-    paddingHorizontal: theme.space(6),
-    paddingTop: theme.space(12),
-    paddingBottom: theme.space(6),
+    paddingHorizontal: theme.gutter,
   },
   header: {
     marginBottom: theme.space(6),
+  },
+  account: {
+    color: theme.colors.text,
+    fontSize: 17,
+    fontWeight: "600",
   },
   padCard: {
     padding: theme.space(5),

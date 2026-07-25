@@ -16,4 +16,7 @@ export const theme = {
     lg: 16,
   },
   space: (steps: number): number => steps * 4,
+  // iPhone's standard leading margin, which is where UIKit puts a large title — tab
+  // screens use it so their content lines up with the header instead of near it.
+  gutter: 16,
 } as const;

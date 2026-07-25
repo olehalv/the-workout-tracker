@@ -1,6 +1,6 @@
-import { Redirect, router, useLocalSearchParams } from "expo-router";
+import { Redirect, router, Stack, useLocalSearchParams } from "expo-router";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { Card, ScreenHeader, SectionLabel, Stat, StatGrid } from "../../src/components/ui";
+import { Card, HeaderButton, SectionLabel, Stat, StatGrid } from "../../src/components/ui";
 import { MusclesTrainedCard, StrengthSummaryCard } from "../../src/components/WorkoutRecap";
 import { theme } from "../../src/theme";
 import { useTemplateDraft } from "../../src/workouts/TemplateDraftContext";
@@ -30,18 +30,19 @@ export default function WorkoutDetailRoute() {
 
   return (
     <View style={styles.container}>
-      <ScreenHeader
-        eyebrow="Workout"
-        title={fmtDate(workout.startedAt)}
-        titleSize={22}
-        subtitle={`${formatTimeOfDay(workout.startedAt)}${
-          workout.finishedAt != null ? ` → ${formatTimeOfDay(workout.finishedAt)}` : ""
-        }`}
-        action={{ label: "Done", onPress: () => router.back() }}
-        style={styles.header}
+      <Stack.Screen
+        options={{
+          title: fmtDate(workout.startedAt),
+          headerRight: () => <HeaderButton label="Done" prominent onPress={() => router.back()} />,
+        }}
       />
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <Text style={styles.times}>
+          {formatTimeOfDay(workout.startedAt)}
+          {workout.finishedAt != null ? ` → ${formatTimeOfDay(workout.finishedAt)}` : ""}
+        </Text>
+
         <StatGrid style={styles.statsRow}>
           <Stat style={styles.statTile} label="Exercises" value={`${workout.exercises.length}`} />
           <Stat style={styles.statTile} label="Sets" value={`${totalSets(workout)}`} />
@@ -93,10 +94,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: theme.colors.background,
     paddingHorizontal: theme.space(6),
-    paddingTop: theme.space(6),
+    paddingTop: theme.space(4),
   },
-  header: {
-    marginBottom: theme.space(5),
+  times: {
+    color: theme.colors.textMuted,
+    fontSize: 14,
+    marginBottom: theme.space(4),
   },
   scrollContent: {
     paddingBottom: theme.space(10),

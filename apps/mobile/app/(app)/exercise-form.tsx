@@ -1,7 +1,7 @@
-import { router, useLocalSearchParams } from "expo-router";
+import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { Alert, StyleSheet, Text, View } from "react-native";
-import { Button, GlassPressable, Input, ScreenHeader, SectionLabel } from "../../src/components/ui";
+import { Button, GlassPressable, HeaderButton, Input, SectionLabel } from "../../src/components/ui";
 import { theme } from "../../src/theme";
 import { MUSCLE_GROUPS } from "../../src/workouts/defaultExercises";
 import { useTemplateDraft } from "../../src/workouts/TemplateDraftContext";
@@ -71,11 +71,11 @@ export default function ExerciseFormRoute() {
 
   return (
     <View style={styles.container}>
-      <ScreenHeader
-        title={isEdit ? "Edit exercise" : "New exercise"}
-        titleSize={22}
-        action={{ label: "Cancel", onPress: () => router.back() }}
-        style={styles.header}
+      <Stack.Screen
+        options={{
+          title: isEdit ? "Edit exercise" : "New exercise",
+          headerLeft: () => <HeaderButton label="Back" onPress={() => router.back()} />,
+        }}
       />
 
       <SectionLabel style={styles.label}>Name</SectionLabel>
@@ -144,10 +144,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: theme.colors.background,
     paddingHorizontal: theme.space(6),
-    paddingTop: theme.space(6),
-  },
-  header: {
-    marginBottom: theme.space(6),
+    paddingTop: theme.space(4),
   },
   label: {
     marginBottom: theme.space(2),

@@ -3,6 +3,7 @@ import { type ReactNode, useEffect, useRef } from "react";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 import { useAuth } from "../../src/auth/AuthContext";
 import { MinimizedWorkoutBar } from "../../src/components/MinimizedWorkoutBar";
+import { modalStackOptions } from "../../src/navigation/headerOptions";
 import { PurchaseProvider } from "../../src/purchases/PurchaseContext";
 import { theme } from "../../src/theme";
 import { RestTimerProvider } from "../../src/workouts/RestTimerContext";
@@ -54,13 +55,9 @@ export default function AppLayout() {
         <TemplateDraftProvider>
           <RestTimer>
             <View style={styles.fill}>
-              <Stack
-                screenOptions={{
-                  headerShown: false,
-                  contentStyle: { backgroundColor: theme.colors.background },
-                }}
-              >
-                <Stack.Screen name="(tabs)" />
+              <Stack screenOptions={modalStackOptions}>
+                {/* The tabs carry a Stack per tab, so this one must not draw a bar over them. */}
+                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
                 <Stack.Screen
                   name="workout"
                   options={{ presentation: "fullScreenModal", gestureEnabled: false }}
@@ -70,7 +67,10 @@ export default function AppLayout() {
                   options={{ presentation: "fullScreenModal", gestureEnabled: false }}
                 />
                 <Stack.Screen name="workout-detail" options={{ presentation: "modal" }} />
-                <Stack.Screen name="exercise-picker" options={{ presentation: "modal" }} />
+                <Stack.Screen
+                  name="exercise-picker"
+                  options={{ presentation: "modal", headerShown: false }}
+                />
                 <Stack.Screen name="exercise-form" options={{ presentation: "modal" }} />
                 <Stack.Screen name="exercise-progress" options={{ presentation: "modal" }} />
                 <Stack.Screen name="template-picker" options={{ presentation: "modal" }} />
@@ -78,6 +78,7 @@ export default function AppLayout() {
                 <Stack.Screen
                   name="paywall"
                   options={{
+                    headerShown: false,
                     presentation: "formSheet",
                     sheetAllowedDetents: "fitToContents",
                     sheetGrabberVisible: true,

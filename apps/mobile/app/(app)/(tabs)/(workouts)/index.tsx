@@ -1,20 +1,13 @@
 import { router } from "expo-router";
 import { useMemo, useState } from "react";
 import { Alert, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import {
-  Button,
-  common,
-  GlassPressable,
-  ScreenHeader,
-  SectionLabel,
-} from "../../../src/components/ui";
-import { dayKey, WeekCalendar } from "../../../src/components/WeekCalendar";
-import { theme } from "../../../src/theme";
-import { elapsedMs, formatClock, useNow } from "../../../src/workouts/time";
-import { totalSets, totalVolume, type Workout } from "../../../src/workouts/types";
-import { toDisplayWeight, type WeightUnit } from "../../../src/workouts/units";
-import { useWorkouts } from "../../../src/workouts/WorkoutContext";
+import { useMinimizedBarClearance } from "../../../../src/components/MinimizedWorkoutBar";
+import { Button, common, SectionLabel } from "../../../../src/components/ui";
+import { dayKey, WeekCalendar } from "../../../../src/components/WeekCalendar";
+import { theme } from "../../../../src/theme";
+import { totalSets, totalVolume, type Workout } from "../../../../src/workouts/types";
+import { toDisplayWeight, type WeightUnit } from "../../../../src/workouts/units";
+import { useWorkouts } from "../../../../src/workouts/WorkoutContext";
 
 function workoutTs(w: Workout): number {
   return w.finishedAt ?? w.startedAt;
@@ -38,8 +31,7 @@ function fmtDayLabel(ts: number): string {
 export default function WorkoutsTab() {
   const { workouts, active, unit, startWorkout, deleteWorkout } = useWorkouts();
   const [selectedTs, setSelectedTs] = useState(todayMidnight);
-  const insets = useSafeAreaInsets();
-  const now = useNow(active !== null);
+  const clearance = useMinimizedBarClearance();
 
   const start = () => {
     startWorkout();
@@ -74,55 +66,49 @@ export default function WorkoutsTab() {
   );
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top + theme.space(12) }]}>
-      <ScreenHeader eyebrow="Progressive overload" title="Workouts" style={styles.header} />
-
-      {active ? (
-        <GlassPressable
-          tint={theme.colors.accent}
-          surfaceStyle={styles.start}
-          fallbackStyle={styles.startSolid}
-          onPress={() => router.push("/workout")}
-        >
-          <Text style={styles.startText}>Resume workout</Text>
-          <Text style={styles.startSub}>
-            {active.exercises.length} exercise{active.exercises.length === 1 ? "" : "s"} ·{" "}
-            {formatClock(elapsedMs(active.startedAt, now))} elapsed
-          </Text>
-        </GlassPressable>
-      ) : (
+    <FlatList
+      contentInsetAdjustmentBehavior="automatic"
+      showsVerticalScrollIndicator={false}
+      data={dayWorkouts}
+      keyExtractor={(w) => w.id}
+      style={styles.list}
+      contentContainerStyle={[styles.listContent, { paddingBottom: clearance + theme.space(6) }]}
+      ListHeaderComponent={
         <>
-          <Button title="Start workout" onPress={start} />
-          <Button
-            title="Start workout from template"
-            variant="secondary"
-            onPress={() => router.push("/template-picker")}
-            style={styles.startSecondary}
-          />
+          <SectionLabel tone="accent">Progressive overload</SectionLabel>
+          {active ? (
+            <>
+              <Button title="Workout in progress" disabled />
+              <Text style={styles.banner}>Finish your current workout to start a new one.</Text>
+            </>
+          ) : (
+            <>
+              <Button title="Start workout" onPress={start} />
+              <Button
+                title="Start workout from template"
+                variant="secondary"
+                onPress={() => router.push("/template-picker")}
+                style={styles.startSecondary}
+              />
+            </>
+          )}
+
+          <SectionLabel style={styles.sectionLabel}>History</SectionLabel>
+          <WeekCalendar selectedKey={selectedKey} marked={marked} onSelect={setSelectedTs} />
+
+          <Text style={styles.dayLabel}>{fmtDayLabel(selectedTs)}</Text>
         </>
+      }
+      ListEmptyComponent={<Text style={styles.empty}>No workouts on this day.</Text>}
+      renderItem={({ item }) => (
+        <HistoryRow
+          workout={item}
+          unit={unit}
+          onOpen={() => router.push({ pathname: "/workout-detail", params: { id: item.id } })}
+          onDelete={() => confirmDelete(item)}
+        />
       )}
-
-      <SectionLabel style={styles.sectionLabel}>History</SectionLabel>
-      <WeekCalendar selectedKey={selectedKey} marked={marked} onSelect={setSelectedTs} />
-
-      <Text style={styles.dayLabel}>{fmtDayLabel(selectedTs)}</Text>
-      <FlatList
-        showsVerticalScrollIndicator={false}
-        data={dayWorkouts}
-        keyExtractor={(w) => w.id}
-        style={styles.list}
-        contentContainerStyle={dayWorkouts.length === 0 ? styles.emptyWrap : styles.listContent}
-        ListEmptyComponent={<Text style={styles.empty}>No workouts on this day.</Text>}
-        renderItem={({ item }) => (
-          <HistoryRow
-            workout={item}
-            unit={unit}
-            onOpen={() => router.push({ pathname: "/workout-detail", params: { id: item.id } })}
-            onDelete={() => confirmDelete(item)}
-          />
-        )}
-      />
-    </View>
+    />
   );
 }
 
@@ -158,33 +144,10 @@ function HistoryRow({
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-    paddingHorizontal: theme.space(6),
-    paddingBottom: theme.space(4),
-  },
-  header: {
-    marginBottom: theme.space(6),
-  },
-  start: {
-    alignItems: "center",
-    paddingVertical: theme.space(4),
-    borderRadius: theme.radius.md,
-  },
-  startSolid: {
-    backgroundColor: theme.colors.accent,
-  },
-  startText: {
-    color: theme.colors.onAccent,
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  startSub: {
-    color: "rgba(255,255,255,0.8)",
-    fontSize: 12,
-    fontWeight: "600",
-    marginTop: theme.space(1),
+  banner: {
+    color: theme.colors.textMuted,
+    fontSize: 13,
+    marginTop: theme.space(2),
   },
   startSecondary: {
     marginTop: theme.space(3),
@@ -203,14 +166,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   listContent: {
+    paddingHorizontal: theme.gutter,
     gap: theme.space(2),
   },
-  emptyWrap: {
-    flexGrow: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
   empty: {
+    textAlign: "center",
+    marginTop: theme.space(6),
     color: theme.colors.textMuted,
     fontSize: 15,
   },

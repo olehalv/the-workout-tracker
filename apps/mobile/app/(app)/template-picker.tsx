@@ -1,7 +1,7 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { router } from "expo-router";
+import { router, Stack } from "expo-router";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
-import { Button, common, ScreenHeader } from "../../src/components/ui";
+import { Button, common, HeaderButton } from "../../src/components/ui";
 import { theme } from "../../src/theme";
 import { useTemplateDraft } from "../../src/workouts/TemplateDraftContext";
 import type { WorkoutPreset } from "../../src/workouts/types";
@@ -22,11 +22,11 @@ export default function TemplatePickerRoute() {
 
   return (
     <View style={styles.container}>
-      <ScreenHeader
-        title="Start from template"
-        titleSize={22}
-        action={{ label: "Cancel", onPress: () => router.back() }}
-        style={styles.header}
+      <Stack.Screen
+        options={{
+          title: "Start from template",
+          headerLeft: () => <HeaderButton label="Back" onPress={() => router.back()} />,
+        }}
       />
 
       <Button
@@ -71,10 +71,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: theme.colors.background,
     paddingHorizontal: theme.space(6),
-    paddingTop: theme.space(6),
-  },
-  header: {
-    marginBottom: theme.space(4),
+    paddingTop: theme.space(4),
   },
   addBtn: {
     marginBottom: theme.space(4),

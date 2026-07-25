@@ -1,6 +1,18 @@
 # The Workout Tracker — Monorepo
 
 PRIORITIZE ME:
+- **Be as native as possible.** When the platform already provides something, use
+  the platform's version of it instead of rebuilding it in JS: real
+  `UINavigationBar` headers (`Stack` + `headerTitle`/`headerLeft`/`headerRight`),
+  the real `UITabBarController` (`NativeTabs`), native modal/sheet presentations
+  (`presentation` + `sheetAllowedDetents`), native alerts, native
+  `expo-glass-effect` surfaces. Reach for a hand-rolled `View`/`Animated`
+  substitute only when nothing native exists, and say so in the diff. The one
+  hard constraint on top of this: whatever you pick must actually be implemented
+  in the native modules **Expo Go on SDK 54** ships — a newer JS API whose native
+  prop is missing (e.g. native-stack's `unstable_headerLeftItems`, which needs a
+  `react-native-screens` newer than 4.16) silently does nothing, so check the
+  installed native source before relying on it.
 - **Comments:** default to **zero** comments. Add one *only* to document a
   non-obvious **external** gotcha — a library bug, an OS/runtime/Expo Go footgun, an
   API that behaves surprisingly. **Never** explain your own code, narrate *what* it
@@ -197,13 +209,38 @@ over HTTP).
     from `EXPO_PUBLIC_USER_API_URL`, defaults to `http://localhost:3000`; see
     `apps/mobile/.env.example`); the returned user includes `plan` (free/pro).
   - `app/login.tsx` (the sign-in UI itself), `src/theme.ts` (dark tokens).
+- **Browsing the exercise library goes through `src/components/ExerciseBrowser.tsx`.**
+  `ExerciseBrowser` lists the muscle groups that actually have exercises (seed order,
+  then any group a custom exercise introduced) and drills into one; `ExerciseList`
+  renders a flat list of exercises. Both take a `meta(exercise)` formatter and an
+  `onSelect`, so the same two components serve four screens: the **Exercises tab**
+  (`(tabs)/exercises/index.tsx` + `[group].tsx` → per-exercise progress) and the
+  **picker** (`exercise-picker/index.tsx` + `[group].tsx` → adds to the active
+  workout **or** the template draft). **Typing at least `MIN_SEARCH_LENGTH` (3)
+  characters skips the grouping** and matches exercises directly — drilling through a
+  category to reach something you already named is a step backwards, but one or two
+  letters match too much to be worth replacing the group list with. The picker's
+  "Create …" row uses the same threshold so nothing appears over the groups mid-word. The picker has its own `Stack`
+  inside the modal so a group pushes *within* the sheet rather than presenting a
+  second sheet on top; that's why its parent `Stack.Screen` sets
+  `headerShown: false`.
+- **There is one exercise picker, not one per caller.** `exercise-picker` takes an
+  `addTo=workout|template` param (same convention as `exercise-form`) and
+  `src/navigation/useExercisePicker.ts` holds everything that differs between the
+  two: where a tap sends the exercise, what the row's meta says, and where Cancel
+  dismisses to. Picking for a **template keeps the picker open** (you usually add
+  several in a row, and the row meta shows "N in template"); picking for the
+  **workout closes it**, since that's a single pick. The template form therefore has
+  no exercise list of its own — it's the draft plus a "+ Add exercise" button that
+  pushes the picker. Add a third caller by passing a new `addTo`, not by copying the
+  list.
 - **Shared UI kit — `src/components/ui/` (reuse it; don't re-copy styles).** The
   dark/minimal design language is componentized here so screens compose instead of
   duplicating `StyleSheet` blocks: `Button` (primary/secondary/danger/dashed, md/sm,
   optional Ionicon), `Card` (surface panel, `padding` in `theme.space` steps),
   `Input` (surface text field), `SectionLabel` (the uppercase muted heading),
-  `ScreenHeader` (tab + modal headers — pass `action` for the Cancel/Done text
-  button), `Stat`/`StatGrid` (the stat tiles), `Segmented` (settings-style toggles:
+  `HeaderButton` (a Cancel/Done bar button for a route's `headerLeft`/`headerRight`
+  — screens never draw their own title bar), `Stat`/`StatGrid` (the stat tiles), `Segmented` (settings-style toggles:
   `variant` buttons|pill, `tone` for pills on a surface card), and `common` (the
   `surface`/`pressed`/`disabled` style fragments). Barrel-exported from
   `src/components/ui/index.ts`. Add new reusable primitives here rather than
@@ -221,7 +258,8 @@ over HTTP).
   sits inside a single shared `Pressable` (not the Pressable-wraps-Glass shape
   `GlassPressable` encodes); it still reuses the shared `GLASS` flag. **General rule:
   if a component already does the job, reuse it — don't reimplement it.**
-- Navigation: **`expo-router` file-based routing** with a **native iOS tab bar**.
+- Navigation: **`expo-router` file-based routing** with a **native iOS tab bar**
+  and a real `UINavigationBar` on every screen.
   `app/(app)/(tabs)/_layout.tsx` uses `NativeTabs` from
   `expo-router/unstable-native-tabs` — a real `UITabBarController`, so on **iOS 26
   it gets the system Liquid Glass** treatment for free (and falls back to a standard
@@ -233,14 +271,20 @@ over HTTP).
   (`src/navigation/AppTabs.tsx`, deleted), which could only *mimic* glass. **Native tabs are alpha on SDK 54** (`unstable-`); the
   API may change. Four tabs, each a route file under `(tabs)/`: **Workouts**
   (`index.tsx`), **Templates**, **Exercises** (heading "Exercises & progress"), and
-  **Me** (`profile.tsx`); SF Symbols for the icons.
+  **Me**; SF Symbols for the icons. **Each trigger points at a directory holding
+  that tab's own `Stack`** (`(tabs)/(workouts)/`, `templates/`, `exercises/`,
+  `profile/`, each with a `_layout.tsx` + `index.tsx`) — a `UITabBarController`
+  has no navigation bar of its own, so a per-tab navigation controller is what
+  makes the tab title a real header. The Workouts tab uses a **group**
+  (`(workouts)`) so its path stays `/` rather than `/workouts`.
 - **Everything above the tabs is a route in the `(app)` Stack — there is no
   state-driven gate and no RN `Modal` left in the app.** `app/(app)/_layout.tsx`
   mounts the providers plus a `<Stack>` whose `anchor` is `(tabs)`; every overlay
   is a sibling route with its `presentation` set there:
   - `workout` and `summary` — `fullScreenModal`, `gestureEnabled: false` (a swipe
     must not drop you out of an active workout).
-  - `workout-detail` (`?id`), `exercise-picker`, `exercise-form`
+  - `workout-detail` (`?id`), `exercise-picker/` (a **nested `Stack`** — see
+    `ExerciseBrowser`), `exercise-form`
     (`?id` to edit, else `?name` to prefill and `?addTo=workout|template`),
     `exercise-progress` (`?id`, `?name` fallback), `template-picker`,
     `template-form` (`?id` to edit) — `presentation: "modal"`.
@@ -254,8 +298,60 @@ over HTTP).
   Only genuinely shared pieces live under `src/components/` — the kit in
   `src/components/ui/`, plus `MinimizedWorkoutBar`/`ResumeBar`/`RestPill`/
   `RestTimerBar`/`WeekCalendar`/`BodyMap`/`LineChart`/`WorkoutRecap`/`ProGate`.
-  `headerShown` is off everywhere — the modal routes keep the kit's `ScreenHeader`
-  with its Cancel/Done action.
+- **Headers are real headers.** There is no `ScreenHeader` component any more —
+  titles and bar buttons are navigation options, not JSX at the top of the body:
+  - Shared config lives in `src/navigation/headerOptions.ts`: `tabStackOptions`
+    (large titles) and `modalStackOptions`, plus `navigationTheme` — a React
+    Navigation `DarkTheme` carrying our tokens, applied once via `ThemeProvider` in
+    `app/_layout.tsx`. Each route declares its own
+    `<Stack.Screen options={{ title, headerLeft, headerRight }} />` from inside the
+    screen, so dynamic titles (the exercise name, a workout's date, New vs Edit)
+    sit next to the state that produces them.
+  - **Colour the navigator through `navigationTheme`, never through
+    `headerStyle`/`headerTintColor`/`contentStyle` per screen.** Setting
+    `headerStyle.backgroundColor` alongside a large title makes the **title text
+    invisible on iOS 26** (native-stack only forces the bar transparent when you
+    haven't given it a colour — see the comment in its `useHeaderConfigProps`), and
+    an explicit colour also opts the bar out of adapting to the content scrolling
+    under it. The theme's `dark: true` is what drives the header's
+    `experimental_userInterfaceStyle`, so labels come out light without being told
+    to.
+  - Bar buttons are `HeaderButton` (`src/components/ui/`) passed to
+    `headerLeft`/`headerRight`; native-stack renders them **inside** the real
+    `UINavigationBar` via `RNSScreenStackHeaderSubview`. **A `headerLeft` that just pops is
+    labelled "Back" — never "Cancel", "Minimize" or anything else** — and `headerRight`
+    is "Done" (`prominent`) or a screen-specific action like "Edit". Drill-downs set
+    `headerBackVisible: false` and supply their own `HeaderButton label="Back"` rather
+    than the system chevron, so every bar button looks the same. The fully-native `unstable_header*Items` (actual `UIBarButtonItem`s,
+    with iOS 26 glass grouping) is **not** usable yet: the matching native prop is
+    absent from `react-native-screens` 4.16, so it would no-op in Expo Go.
+  - **Tab screens use iOS large titles**, which makes native-stack transparent the
+    header and hand the inset to the screen's primary scroll view. So each tab
+    screen's root **is** a `FlatList`/`ScrollView` with
+    `contentInsetAdjustmentBehavior="automatic"`, and anything that used to sit
+    above the list (start buttons, search field, week calendar) is its
+    `ListHeaderComponent`. Don't wrap a tab screen in a `View` — the large title
+    stops collapsing and the content double-insets.
+  - Screens therefore carry **no top padding of their own**; the header owns it, and
+    their horizontal padding is **`theme.gutter` (16)** — UIKit's leading margin for
+    a large title. Using `theme.space(6)` there leaves the content sitting a few
+    points inboard of the title, which reads as a misalignment.
+  - The accent eyebrow ("Progressive overload", "Library", …) is
+    `<SectionLabel tone="accent">` at the top of the tab screen's scroll content,
+    i.e. **below** the large title rather than above it. A navigation bar has no
+    slot for it: iOS 26 has `UINavigationItem.subtitle`, but neither
+    `@react-navigation/native-stack` 7.18.5 nor `react-native-screens` 4.16 exposes
+    it. Putting it in `headerLeft` does land it above the large title and was tried
+    and rejected — that slot is for bar buttons, and the label doesn't collapse with
+    the large title, so it lingers beside the small title once scrolled. On the modal
+    routes the eyebrow became the native title itself ("Active workout", "Workout
+    complete") or was dropped where the title already said it.
+- **`KeyboardAvoidingView` overwrites the `paddingBottom` you give it** — with
+  `behavior="padding"` it renders
+  `<View style={StyleSheet.compose(style, {paddingBottom: keyboardHeight})}>`, so a
+  safe-area bottom inset set on the KAV itself is composed away (0 while the keyboard
+  is closed) and the last control sits half off-screen. Put the padding on an inner
+  `View` and leave the KAV as a bare `flex: 1` wrapper — see `template-form.tsx`.
 - **Safe area: use `useSafeAreaInsets()`, never `<SafeAreaView>`.** `SafeAreaView`
   measures itself natively, and inside a screen that mounts in a just-presented
   modal view controller that measurement lands on **0** — so a pushed route opens
@@ -277,10 +373,15 @@ over HTTP).
   the Me tab's always-on analytics), by design.
 - While a workout is minimized, `src/components/MinimizedWorkoutBar.tsx` floats the
   **Resume workout** bar (`ResumeBar.tsx`, live elapsed time) over the tab screens —
-  it renders next to the `<Stack>` and shows only on the four tab paths
-  (`usePathname()`; also hidden on the Workouts tab at `/`, which has its own Resume
-  button). The rest-timer pill (`RestPill.tsx`) takes priority (one or the other,
-  never both). Native tabs don't expose their bar height, so that overlay floats
+  it renders next to the `<Stack>` and shows on all four tab paths (`usePathname()`).
+  It is the **only** way back into a running workout: the Workouts tab deliberately
+  shows a *disabled* "Workout in progress" button in the start slot instead of a
+  second resume control, so there's one affordance rather than two. The rest-timer
+  pill (`RestPill.tsx`) takes priority (one or the other, never both). Because it
+  floats *over* the tab content, scrollable tab screens add
+  `useMinimizedBarClearance()` to their `contentContainerStyle` bottom padding — it
+  keys off the same visible/not-visible predicate as the bar, so a list inside a modal
+  (the picker) isn't padded for a bar that isn't there. Native tabs don't expose their bar height, so that overlay floats
   above an estimate (`TAB_BAR_ESTIMATE`, tune on-device). Native tabs auto-inset
   scroll content on iOS, so tab screens need no manual bottom clearance.
 - Workout tracking (implemented): start/minimize/finish a workout, add exercises
@@ -344,7 +445,8 @@ over HTTP).
     `src/components/WeekCalendar.tsx` strip — one week per swipe, current week
     first, lazily loading one more week each page back up to ~1 year; filters
     history to the selected day), `templates.tsx`, `exercises.tsx` (searchable
-    library), `profile.tsx` (the **Me** tab: kg/lbs unit toggle, a
+    library, browsed **by muscle group** — see `ExerciseBrowser` below), `profile.tsx`
+    (the **Me** tab: kg/lbs unit toggle, a
     **strength-ratings** card (bodyweight + sex inputs → per-lift tiers/score via
     `strengthStandards.ts`), and a **muscle-activity body map**: realistic
     anatomical front/back figures from `src/components/BodyMap.tsx`, tinted by
@@ -360,7 +462,7 @@ over HTTP).
     Back + Lats; abs+obliques→Core; tibialis→Calves) and renders/heat-tints them.
     Uses `react-native-svg` — bundled in Expo Go — for the figures; it aggregates
     sets-per-muscle-group from logged workouts). Workout flow, all under
-    `app/(app)/`: `workout.tsx` (active workout), `exercise-picker.tsx`
+    `app/(app)/`: `workout.tsx` (active workout), `exercise-picker/`
     (search/create + add), `exercise-form.tsx` (create/edit/delete a library
     exercise; multi-select muscle groups; "Create" vs "Create & add", the latter
     routed by the `addTo` param), `exercise-progress.tsx` (chart + history, with an

@@ -1,10 +1,11 @@
+import { ThemeProvider } from "@react-navigation/native";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Appearance } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { initialWindowMetrics, SafeAreaProvider } from "react-native-safe-area-context";
 import { AuthProvider } from "../src/auth/AuthContext";
-import { theme } from "../src/theme";
+import { navigationTheme } from "../src/navigation/headerOptions";
 
 // app.json's userInterfaceStyle only forces dark in a native build's Info.plist; in
 // Expo Go (and pre-first-render) UIKit follows the device appearance, so native
@@ -20,18 +21,15 @@ export default function RootLayout() {
           which is what makes it look like a one-off glitch). initialMetrics seeds the
           hook synchronously so the very first frame is already inset. */}
       <SafeAreaProvider initialMetrics={initialWindowMetrics}>
-        <AuthProvider>
-          <StatusBar style="light" />
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              contentStyle: { backgroundColor: theme.colors.background },
-            }}
-          >
-            <Stack.Screen name="login" />
-            <Stack.Screen name="(app)" />
-          </Stack>
-        </AuthProvider>
+        <ThemeProvider value={navigationTheme}>
+          <AuthProvider>
+            <StatusBar style="light" />
+            <Stack screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="login" />
+              <Stack.Screen name="(app)" />
+            </Stack>
+          </AuthProvider>
+        </ThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

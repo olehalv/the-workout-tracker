@@ -1,9 +1,9 @@
-import { router, useLocalSearchParams } from "expo-router";
+import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useMemo } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { LineChart } from "../../src/components/LineChart";
 import { ProGate } from "../../src/components/ProGate";
-import { Button, Card, ScreenHeader, SectionLabel, Stat, StatGrid } from "../../src/components/ui";
+import { Card, HeaderButton, SectionLabel, Stat, StatGrid } from "../../src/components/ui";
 import { usePurchases } from "../../src/purchases/PurchaseContext";
 import { theme } from "../../src/theme";
 import type { ProgressPoint } from "../../src/workouts/types";
@@ -43,26 +43,23 @@ export default function ExerciseProgressRoute() {
 
   return (
     <View style={styles.container}>
-      <ScreenHeader
-        eyebrow="Progress"
-        title={libraryExercise?.name ?? name ?? ""}
-        titleSize={26}
-        action={{ label: "Done", onPress: () => router.back() }}
-        style={styles.header}
+      <Stack.Screen
+        options={{
+          title: libraryExercise?.name ?? name ?? "",
+          headerLeft: () => <HeaderButton label="Back" onPress={() => router.back()} />,
+          headerRight: libraryExercise
+            ? () => (
+                <HeaderButton
+                  label="Edit"
+                  prominent
+                  onPress={() =>
+                    router.push({ pathname: "/exercise-form", params: { id: libraryExercise.id } })
+                  }
+                />
+              )
+            : undefined,
+        }}
       />
-
-      {libraryExercise ? (
-        <Button
-          title="Edit exercise"
-          variant="secondary"
-          size="sm"
-          icon="create-outline"
-          onPress={() =>
-            router.push({ pathname: "/exercise-form", params: { id: libraryExercise.id } })
-          }
-          style={styles.editBtn}
-        />
-      ) : null}
 
       {points.length === 0 ? (
         <View style={styles.emptyWrap}>
@@ -140,14 +137,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: theme.colors.background,
     paddingHorizontal: theme.space(6),
-    paddingTop: theme.space(6),
-  },
-  header: {
-    marginBottom: theme.space(5),
-  },
-  editBtn: {
-    alignSelf: "flex-start",
-    marginBottom: theme.space(5),
+    paddingTop: theme.space(4),
   },
   scrollContent: {
     paddingBottom: theme.space(10),

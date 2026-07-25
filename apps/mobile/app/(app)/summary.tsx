@@ -1,4 +1,4 @@
-import { Redirect, router } from "expo-router";
+import { Redirect, router, Stack } from "expo-router";
 import { useMemo } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -73,10 +73,10 @@ export default function SummaryRoute() {
   ];
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+    <View style={[styles.container, { paddingBottom: insets.bottom }]}>
+      <Stack.Screen options={{ title: "Workout complete" }} />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <Text style={styles.eyebrow}>Workout complete</Text>
           <Text style={styles.title}>Nice work 💪</Text>
           <Text style={styles.subtitle}>
             Finished at {formatTimeOfDay(summary.finishedAt ?? Date.now())}
@@ -135,24 +135,16 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: theme.space(6),
-    paddingTop: theme.space(10),
+    paddingTop: theme.space(4),
     paddingBottom: theme.space(10),
   },
   header: {
     marginBottom: theme.space(6),
   },
-  eyebrow: {
-    color: theme.colors.accent,
-    fontSize: 13,
-    fontWeight: "600",
-    textTransform: "uppercase",
-    letterSpacing: 1,
-  },
   title: {
     color: theme.colors.text,
     fontSize: 28,
     fontWeight: "800",
-    marginTop: theme.space(2),
   },
   subtitle: {
     color: theme.colors.textMuted,

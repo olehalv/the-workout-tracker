@@ -1,5 +1,5 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Redirect, router } from "expo-router";
+import { Redirect, router, Stack } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
@@ -19,7 +19,7 @@ import ReorderableList, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { RestTimerBar } from "../../src/components/RestTimerBar";
 import { REORDER_CELL_ANIMATIONS } from "../../src/components/reorder";
-import { Button, Card, common, GlassPressable } from "../../src/components/ui";
+import { Button, Card, common, GlassPressable, HeaderButton } from "../../src/components/ui";
 import { theme } from "../../src/theme";
 import { useRestTimer } from "../../src/workouts/RestTimerContext";
 import { useTemplateDraft } from "../../src/workouts/TemplateDraftContext";
@@ -108,29 +108,27 @@ export default function WorkoutRoute() {
   };
 
   return (
-    <View style={[styles.screen, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+    <View style={[styles.screen, { paddingBottom: insets.bottom }]}>
+      <Stack.Screen
+        options={{
+          title: "Active workout",
+          headerLeft: () => <HeaderButton label="Back" onPress={() => router.back()} />,
+        }}
+      />
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <View style={styles.header}>
-          <View style={styles.headerMain}>
-            <View style={styles.eyebrowRow}>
-              <Text style={styles.eyebrow}>Active workout</Text>
-              <View style={styles.clock}>
-                <Ionicons name="time-outline" size={14} color={theme.colors.accent} />
-                <Text style={styles.clockText}>{formatClock(elapsed)}</Text>
-              </View>
-            </View>
-            <Text style={styles.title}>
-              {totalSets(active)} sets · {Math.round(toDisplayWeight(totalVolume(active), unit))}{" "}
-              {unit}
-            </Text>
-            <Text style={styles.startedAt}>Started {formatTimeOfDay(active.startedAt)}</Text>
+          <View style={styles.clock}>
+            <Ionicons name="time-outline" size={14} color={theme.colors.accent} />
+            <Text style={styles.clockText}>{formatClock(elapsed)}</Text>
           </View>
-          <Pressable onPress={() => router.back()} hitSlop={8}>
-            <Text style={styles.minimizeText}>Minimize</Text>
-          </Pressable>
+          <Text style={styles.title}>
+            {totalSets(active)} sets · {Math.round(toDisplayWeight(totalVolume(active), unit))}{" "}
+            {unit}
+          </Text>
+          <Text style={styles.startedAt}>Started {formatTimeOfDay(active.startedAt)}</Text>
         </View>
 
         <ReorderableList
@@ -407,23 +405,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: theme.colors.background,
     paddingHorizontal: theme.space(6),
-    paddingTop: theme.space(12),
+    paddingTop: theme.space(4),
   },
   header: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
     marginBottom: theme.space(4),
   },
-  headerMain: {
-    flex: 1,
-  },
-  eyebrowRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.space(3),
-  },
   clock: {
+    alignSelf: "flex-start",
     flexDirection: "row",
     alignItems: "center",
     gap: theme.space(1),
@@ -438,19 +426,6 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     fontSize: 12,
     marginTop: theme.space(1),
-  },
-  minimizeText: {
-    color: theme.colors.accent,
-    fontSize: 16,
-    fontWeight: "600",
-    paddingLeft: theme.space(3),
-  },
-  eyebrow: {
-    color: theme.colors.accent,
-    fontSize: 13,
-    fontWeight: "600",
-    textTransform: "uppercase",
-    letterSpacing: 1,
   },
   title: {
     color: theme.colors.text,

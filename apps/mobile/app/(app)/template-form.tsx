@@ -1,42 +1,35 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { router, useLocalSearchParams } from "expo-router";
-import { useMemo, useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { router, Stack, useLocalSearchParams } from "expo-router";
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import ReorderableList, {
   type ReorderableListRenderItemInfo,
   reorderItems,
   useIsActive,
   useReorderableDrag,
 } from "react-native-reorderable-list";
-import { ExerciseListRow } from "../../src/components/ExerciseListRow";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { REORDER_CELL_ANIMATIONS } from "../../src/components/reorder";
-import { Button, common, Input, ScreenHeader, SectionLabel } from "../../src/components/ui";
+import { Button, common, HeaderButton, Input, SectionLabel } from "../../src/components/ui";
 import { theme } from "../../src/theme";
 import { type DraftExercise, useTemplateDraft } from "../../src/workouts/TemplateDraftContext";
-import { muscleLabel } from "../../src/workouts/types";
 import { useWorkouts } from "../../src/workouts/WorkoutContext";
 
 export default function TemplateFormRoute() {
   const { id } = useLocalSearchParams<{ id?: string }>();
-  const { library, presets, createPreset, updatePreset, deletePreset } = useWorkouts();
+  const { presets, createPreset, updatePreset, deletePreset } = useWorkouts();
   const draft = useTemplateDraft();
-  const [query, setQuery] = useState("");
+  const insets = useSafeAreaInsets();
 
   const preset = id ? (presets.find((p) => p.id === id) ?? null) : null;
   const isEdit = preset !== null;
-
-  const counts = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const e of draft.exercises) m.set(e.exerciseId, (m.get(e.exerciseId) ?? 0) + 1);
-    return m;
-  }, [draft.exercises]);
-
-  const q = query.trim().toLowerCase();
-  const results = useMemo(() => {
-    const list = q ? library.filter((e) => e.name.toLowerCase().includes(q)) : [...library];
-    return list.sort((a, b) => a.name.localeCompare(b.name));
-  }, [library, q]);
-  const exactMatch = results.some((e) => e.name.toLowerCase() === q);
 
   const canSave = draft.name.trim().length > 0 && draft.exercises.length > 0;
 
@@ -68,111 +61,84 @@ export default function TemplateFormRoute() {
   };
 
   return (
-    <View style={styles.container}>
-      <ScreenHeader
-        title={isEdit ? "Edit template" : "New template"}
-        titleSize={22}
-        action={{ label: "Cancel", onPress: () => router.back() }}
-        style={styles.header}
+    <KeyboardAvoidingView
+      style={styles.flex}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
+      <Stack.Screen
+        options={{
+          title: isEdit ? "Edit template" : "New template",
+          headerLeft: () => <HeaderButton label="Back" onPress={() => router.back()} />,
+        }}
       />
+      <View style={[styles.container, { paddingBottom: insets.bottom + theme.space(4) }]}>
+        <ReorderableList
+          style={styles.list}
+          data={draft.exercises}
+          keyExtractor={(e) => e.uid}
+          onReorder={({ from, to }) => draft.setExercises(reorderItems(draft.exercises, from, to))}
+          cellAnimations={REORDER_CELL_ANIMATIONS}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.listContent}
+          ListHeaderComponent={
+            <View>
+              <SectionLabel style={styles.label}>Name</SectionLabel>
+              <Input
+                style={styles.input}
+                placeholder="e.g. Push day"
+                value={draft.name}
+                onChangeText={draft.setName}
+                autoFocus={!isEdit}
+                autoCorrect={false}
+                returnKeyType="done"
+              />
 
-      <ReorderableList
-        data={draft.exercises}
-        keyExtractor={(e) => e.uid}
-        onReorder={({ from, to }) => draft.setExercises(reorderItems(draft.exercises, from, to))}
-        cellAnimations={REORDER_CELL_ANIMATIONS}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.listContent}
-        ListHeaderComponent={
-          <View>
-            <SectionLabel style={styles.label}>Name</SectionLabel>
-            <Input
-              style={styles.input}
-              placeholder="e.g. Push day"
-              value={draft.name}
-              onChangeText={draft.setName}
-              autoFocus={!isEdit}
-              autoCorrect={false}
-              returnKeyType="done"
-            />
-
-            <SectionLabel style={styles.label}>
-              Exercises{draft.exercises.length > 0 ? ` · ${draft.exercises.length}` : ""}
-            </SectionLabel>
-            {draft.exercises.length === 0 ? (
-              <Text style={styles.hint}>Tap exercises below to add them, in order.</Text>
-            ) : (
-              <Text style={styles.hint}>Hold the grip to drag and reorder.</Text>
-            )}
-          </View>
-        }
-        renderItem={({ item }: ReorderableListRenderItemInfo<DraftExercise>) => (
-          <SelectedRow
-            item={item}
-            onChangeSets={(delta) => draft.changeSets(item.uid, delta)}
-            onRemove={() => draft.removeExercise(item.uid)}
-          />
-        )}
-        ListFooterComponent={
-          <View style={styles.footer}>
-            <Input
-              style={styles.search}
-              placeholder="Search or create an exercise"
-              value={query}
-              onChangeText={setQuery}
-              autoCorrect={false}
-              returnKeyType="done"
-            />
-            {q.length > 0 && !exactMatch ? (
-              <Pressable
-                style={({ pressed }) => [styles.createRow, pressed && common.pressed]}
-                onPress={() =>
-                  router.push({
-                    pathname: "/exercise-form",
-                    params: { name: query.trim(), addTo: "template" },
-                  })
-                }
-              >
-                <Text style={styles.createText}>Create “{query.trim()}”</Text>
-                <Text style={styles.createHint}>Set muscle group, then create &amp; add</Text>
-              </Pressable>
-            ) : null}
-            <View style={styles.results}>
-              {results.map((item) => {
-                const count = counts.get(item.id) ?? 0;
-                return (
-                  <ExerciseListRow
-                    key={item.id}
-                    name={item.name}
-                    meta={`${muscleLabel(item)}${item.custom ? " · custom" : ""}${
-                      count > 0 ? ` · ${count} in template` : ""
-                    }`}
-                    onPress={() => draft.addExercise(item.id, item.name)}
-                    showAdd
-                  />
-                );
-              })}
+              <SectionLabel style={styles.label}>
+                Exercises{draft.exercises.length > 0 ? ` · ${draft.exercises.length}` : ""}
+              </SectionLabel>
+              {draft.exercises.length === 0 ? (
+                <Text style={styles.hint}>Add exercises to build the template.</Text>
+              ) : (
+                <Text style={styles.hint}>Hold the grip to drag and reorder.</Text>
+              )}
             </View>
-          </View>
-        }
-      />
-
-      <Button
-        title={isEdit ? "Save template" : "Create template"}
-        disabled={!canSave}
-        onPress={save}
-        style={styles.saveBtn}
-      />
-      {isEdit ? (
-        <Button
-          title="Delete template"
-          variant="danger"
-          onPress={confirmDelete}
-          style={styles.gapTop}
+          }
+          renderItem={({ item }: ReorderableListRenderItemInfo<DraftExercise>) => (
+            <SelectedRow
+              item={item}
+              onChangeSets={(delta) => draft.changeSets(item.uid, delta)}
+              onRemove={() => draft.removeExercise(item.uid)}
+            />
+          )}
+          ListFooterComponent={
+            <Button
+              title="+ Add exercise"
+              variant="dashed"
+              onPress={() =>
+                router.push({ pathname: "/exercise-picker", params: { addTo: "template" } })
+              }
+              style={styles.addExercise}
+            />
+          }
         />
-      ) : null}
-    </View>
+
+        <Button
+          title={isEdit ? "Save template" : "Create template"}
+          disabled={!canSave}
+          onPress={save}
+          style={styles.saveBtn}
+        />
+        {isEdit ? (
+          <Button
+            title="Delete template"
+            variant="danger"
+            onPress={confirmDelete}
+            style={styles.gapTop}
+          />
+        ) : null}
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -228,15 +194,17 @@ function SelectedRow({
 }
 
 const styles = StyleSheet.create({
-  container: {
+  flex: {
     flex: 1,
     backgroundColor: theme.colors.background,
-    paddingHorizontal: theme.space(6),
-    paddingTop: theme.space(6),
-    paddingBottom: theme.space(4),
   },
-  header: {
-    marginBottom: theme.space(4),
+  container: {
+    flex: 1,
+    paddingHorizontal: theme.space(6),
+    paddingTop: theme.space(4),
+  },
+  list: {
+    flex: 1,
   },
   listContent: {
     paddingBottom: theme.space(4),
@@ -319,32 +287,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     paddingLeft: theme.space(1),
   },
-  footer: {
-    marginTop: theme.space(1),
-  },
-  results: {
-    gap: theme.space(2),
-  },
-  search: {
-    marginBottom: theme.space(2),
-  },
-  createRow: {
-    backgroundColor: theme.colors.surface,
-    borderColor: theme.colors.accent,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: theme.radius.md,
-    paddingHorizontal: theme.space(4),
-    paddingVertical: theme.space(3),
-    marginBottom: theme.space(2),
-  },
-  createText: {
-    color: theme.colors.accent,
-    fontSize: 15,
-    fontWeight: "600",
-  },
-  createHint: {
-    color: theme.colors.textMuted,
-    fontSize: 12,
+  addExercise: {
     marginTop: theme.space(1),
   },
   saveBtn: {
