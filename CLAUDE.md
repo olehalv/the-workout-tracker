@@ -165,9 +165,9 @@ over HTTP).
   reorder (the active-workout exercise list and the template form) uses
   `react-native-reorderable-list`, which builds on `react-native-gesture-handler` +
   `react-native-reanimated` 4 (all bundled in Expo Go on SDK 54; the root
-  `GestureHandlerRootView` in `app/_layout.tsx` is required for the gestures — and a
-  `ReorderableList` inside a RN `Modal` needs its own local `GestureHandlerRootView`,
-  see `PresetFormModal`). The library's **default cell animation scales the dragged
+  `GestureHandlerRootView` in `app/_layout.tsx` is required for the gestures; since
+  both lists are plain routes rather than RN `Modal`s, that single root covers them).
+  The library's **default cell animation scales the dragged
   item to 1.025 and ghosts it to 0.75 opacity**, which overflows the row's slot and
   clips into neighbours; we disable both via a shared `cellAnimations` constant
   (`src/components/reorder.ts`, `REORDER_CELL_ANIMATIONS`) and signal "picked up" with
@@ -188,15 +188,15 @@ over HTTP).
     live in `app/`. `app/_layout.tsx` mounts `GestureHandlerRootView` +
     `AuthProvider` + the root `Stack`;
     `app/login.tsx` is the signed-out route; `app/(app)/_layout.tsx` guards auth
-    (redirects to `/login`), mounts the app providers, and gates the full-screen
-    active workout / summary vs the tabs. (There is no `App.tsx` — the old
-    single-tree entry was removed in the router migration.)
+    (redirects to `/login`), mounts the app providers, and holds the `Stack` that
+    owns the tabs plus every full-screen/modal route. (There is no `App.tsx` — the
+    old single-tree entry was removed in the router migration.)
   - `src/auth/AuthContext.tsx` — session state, restore-on-startup, sign in/out.
   - `src/auth/appleSignIn.ts` — native Apple flow → identity token.
   - `src/api/client.ts` — calls `POST /api/auth/apple` on the `web` app (base URL
     from `EXPO_PUBLIC_USER_API_URL`, defaults to `http://localhost:3000`; see
     `apps/mobile/.env.example`); the returned user includes `plan` (free/pro).
-  - `src/screens/LoginScreen.tsx`, `src/theme.ts` (dark tokens).
+  - `app/login.tsx` (the sign-in UI itself), `src/theme.ts` (dark tokens).
 - **Shared UI kit — `src/components/ui/` (reuse it; don't re-copy styles).** The
   dark/minimal design language is componentized here so screens compose instead of
   duplicating `StyleSheet` blocks: `Button` (primary/secondary/danger/dashed, md/sm,
@@ -233,23 +233,56 @@ over HTTP).
   (`src/navigation/AppTabs.tsx`, deleted), which could only *mimic* glass. **Native tabs are alpha on SDK 54** (`unstable-`); the
   API may change. Four tabs, each a route file under `(tabs)/`: **Workouts**
   (`index.tsx`), **Templates**, **Exercises** (heading "Exercises & progress"), and
-  **Me** (`profile.tsx`, `ProfileScreen`); SF Symbols for the icons. An in-progress
-  workout is shown full-screen (`WorkoutScreen`) and takes over — the
-  `app/(app)/_layout.tsx` gate renders it in place of the tabs' `<Slot>` while
-  `active && !minimized`; minimizing keeps the workout alive and returns to the
-  tabs, where the Workouts tab offers **Resume workout**. Finishing a (non-empty)
-  workout shows a full-screen **post-workout summary** (`WorkoutSummaryScreen`,
-  gated by `summary` in the same layout, dismissed via `dismissSummary()`): session
-  stats, new personal records, the trained-muscle body map, and a strength read-out.
-  This recap is **free — no Pro gate** (unlike the Me tab's always-on analytics), by
-  design. While a workout is minimized, `src/screens/MinimizedWorkoutBar.tsx` floats
-  the **Resume workout** bar (`ResumeBar.tsx`, live elapsed time) over the tab
-  screens (hidden on the Workouts tab at `/` via `usePathname()`); the rest-timer
-  pill (`RestPill.tsx`) takes priority (one or the other, never both). Native tabs
-  don't expose their bar height, so that overlay floats above an estimate
-  (`TAB_BAR_ESTIMATE`, tune on-device). `src/navigation/tabBar.ts`'s
-  `tabScrollClearance` is now a **no-op** — native tabs auto-inset scroll content on
-  iOS; the tab screens still spread it into `contentContainerStyle` harmlessly.
+  **Me** (`profile.tsx`); SF Symbols for the icons.
+- **Everything above the tabs is a route in the `(app)` Stack — there is no
+  state-driven gate and no RN `Modal` left in the app.** `app/(app)/_layout.tsx`
+  mounts the providers plus a `<Stack>` whose `anchor` is `(tabs)`; every overlay
+  is a sibling route with its `presentation` set there:
+  - `workout` and `summary` — `fullScreenModal`, `gestureEnabled: false` (a swipe
+    must not drop you out of an active workout).
+  - `workout-detail` (`?id`), `exercise-picker`, `exercise-form`
+    (`?id` to edit, else `?name` to prefill and `?addTo=workout|template`),
+    `exercise-progress` (`?id`, `?name` fallback), `template-picker`,
+    `template-form` (`?id` to edit) — `presentation: "modal"`.
+  - `paywall` — `presentation: "formSheet"` with `sheetAllowedDetents:
+    "fitToContents"`, so iOS owns the sheet: no hand-rolled `Animated` slide, no
+    scrim, no grabber of our own.
+  **A route file *is* the screen — there is no `src/screens/` indirection.** Each
+  file under `app/` holds its own UI and calls `router` / `useLocalSearchParams`
+  directly, and the safe-area wrapper is folded into that same component (so
+  `app/(app)/(tabs)/index.tsx` is the Workouts screen, not a two-line re-export).
+  Only genuinely shared pieces live under `src/components/` — the kit in
+  `src/components/ui/`, plus `MinimizedWorkoutBar`/`ResumeBar`/`RestPill`/
+  `RestTimerBar`/`WeekCalendar`/`BodyMap`/`LineChart`/`WorkoutRecap`/`ProGate`.
+  `headerShown` is off everywhere — the modal routes keep the kit's `ScreenHeader`
+  with its Cancel/Done action.
+- **Safe area: use `useSafeAreaInsets()`, never `<SafeAreaView>`.** `SafeAreaView`
+  measures itself natively, and inside a screen that mounts in a just-presented
+  modal view controller that measurement lands on **0** — so a pushed route opens
+  with no top inset the first time and looks right on every reopen (the value is
+  cached by then). The hook reads the provider's already-measured metrics, and
+  `app/_layout.tsx` passes `initialMetrics={initialWindowMetrics}` so they're
+  available synchronously on the first frame. Screens add `insets.top` /
+  `insets.bottom` onto their own padding.
+- Navigating the workout: **Start workout** → `startWorkout()` + `push("/workout")`;
+  **Minimize** → `router.back()` (the store's `minimized` flag is set by the route's
+  mount/unmount effect, and is only read to reopen the workout after a cold start);
+  **Resume** → `push("/workout")`; **Finish** → `finishWorkout()` +
+  `replace("/summary")`. `workout.tsx`/`summary.tsx` render a `<Redirect>`
+  when their state is missing, aimed at the same destination the explicit navigation
+  goes to, so a deep link or a mid-transition re-render can't strand you.
+  Finishing a (non-empty) workout shows the **post-workout summary**
+  (`app/(app)/summary.tsx`): session stats, new personal records, the trained-muscle
+  body map, and a strength read-out. This recap is **free — no Pro gate** (unlike
+  the Me tab's always-on analytics), by design.
+- While a workout is minimized, `src/components/MinimizedWorkoutBar.tsx` floats the
+  **Resume workout** bar (`ResumeBar.tsx`, live elapsed time) over the tab screens —
+  it renders next to the `<Stack>` and shows only on the four tab paths
+  (`usePathname()`; also hidden on the Workouts tab at `/`, which has its own Resume
+  button). The rest-timer pill (`RestPill.tsx`) takes priority (one or the other,
+  never both). Native tabs don't expose their bar height, so that overlay floats
+  above an estimate (`TAB_BAR_ESTIMATE`, tune on-device). Native tabs auto-inset
+  scroll content on iOS, so tab screens need no manual bottom clearance.
 - Workout tracking (implemented): start/minimize/finish a workout, add exercises
   from a library (built-in seed + user-created custom, each with one or more
   **muscle groups**; editable/deletable — icon buttons for progress/edit/remove),
@@ -268,14 +301,15 @@ over HTTP).
     `elapsedMs`, `formatClock` (live stopwatch "M:SS"/"H:MM:SS"), `formatDuration`
     ("1h 12m"), `formatTimeOfDay`, and the `useNow(active)` hook (ticks every
     second only while active) that drives the live elapsed timers on the active
-    `WorkoutScreen` header, the Resume controls, and the workout detail view.
+    workout header, the Resume controls, and the workout detail view.
   - `src/workouts/units.ts` — `WeightUnit` ("kg"/"lbs") + convert/format helpers.
     Weights are stored canonically in **kg**; screens convert to the user's unit
     at display/input boundaries (unit preference lives in the store, set on the
     Me tab, default kg).
   - `src/workouts/WorkoutContext.tsx` — the single workout store: loads/persists
     on mount (old single-`category` exercises are migrated to `muscleGroups`),
-    holds `workouts` + `library` + `presets` + `active` + `minimized` + `unit` +
+    holds `workouts` + `library` + `presets` + `active` + `minimized` (a cold-start
+    hint only — see Navigation) + `unit` +
     `bodyweight`/`sex` (kg + biological sex, for strength ratings), exposes actions
     and the `progressFor(exerciseId)` selector. `reconcileLibrary` refreshes
     built-in muscle groups from the seed **and appends any seed entries a stored
@@ -294,21 +328,23 @@ over HTTP).
   - Presets/templates: persisted `WorkoutPreset`s (named, ordered exercise lists,
     each `PresetExercise` carrying a target `sets` count) in the store; starting
     from one pre-fills that many empty sets per exercise. Live on the **Templates**
-    tab (`src/screens/TemplatesScreen.tsx`); create/edit/delete + per-exercise
+    tab (`app/(app)/(tabs)/templates.tsx`); create/edit/delete + per-exercise
     set-count steppers + hold-and-drag reorder (`react-native-reorderable-list`,
-    same as the active workout) in `src/screens/PresetFormModal.tsx`; also "save
-    active workout as template" from `WorkoutScreen`. The template picker
-    (`TemplatePickerModal`, opened from the Workouts tab) also offers "+ New
+    same as the active workout) in `app/(app)/template-form.tsx`; also "save
+    active workout as template" from the active workout. The template picker
+    (`app/(app)/template-picker.tsx`, opened from the Workouts tab) also offers "+ New
     template" so a template can be created without visiting the Templates tab.
-    Starting a template is disabled while a workout is active. **Because the form
-    lives in a RN `Modal`, its `ReorderableList` is wrapped in its own
-    `GestureHandlerRootView`** — a `Modal` detaches from the app-root one in
-    `app/_layout.tsx`, so gestures inside it are dead without a local root.
-  - Tab screens: `src/screens/WorkoutsScreen.tsx` (start/resume + a paged weekly
-    `WeekCalendar.tsx` strip — one week per swipe, current week first, lazily
-    loading one more week each page back up to ~1 year; filters history to the
-    selected day), `TemplatesScreen.tsx`, `ExercisesScreen.tsx` (searchable
-    library), `ProfileScreen.tsx` (the **Me** tab: kg/lbs unit toggle, a
+    Starting a template is disabled while a workout is active. **The form's in-progress
+    draft lives in `src/workouts/TemplateDraftContext.tsx`, above the router** — the
+    "create an exercise" route stacks on top of the form, and a pushed route has no
+    way to hand a value back, so the draft is the hand-off point. Its `openNew(seed?)`
+    / `openEditor(preset)` seed the draft *and* navigate, which keeps "the form is
+    always seeded before it mounts" a single invariant instead of a mount effect.
+  - Tab screens (`app/(app)/(tabs)/`): `index.tsx` (start/resume + a paged weekly
+    `src/components/WeekCalendar.tsx` strip — one week per swipe, current week
+    first, lazily loading one more week each page back up to ~1 year; filters
+    history to the selected day), `templates.tsx`, `exercises.tsx` (searchable
+    library), `profile.tsx` (the **Me** tab: kg/lbs unit toggle, a
     **strength-ratings** card (bodyweight + sex inputs → per-lift tiers/score via
     `strengthStandards.ts`), and a **muscle-activity body map**: realistic
     anatomical front/back figures from `src/components/BodyMap.tsx`, tinted by
@@ -323,17 +359,18 @@ over HTTP).
     library's muscle slugs onto our 14 groups (its "upper-back" covers both Upper
     Back + Lats; abs+obliques→Core; tibialis→Calves) and renders/heat-tints them.
     Uses `react-native-svg` — bundled in Expo Go — for the figures; it aggregates
-    sets-per-muscle-group from logged workouts). Workout flow:
-    `WorkoutScreen.tsx` (active workout), `ExercisePickerModal.tsx` (search/create
-    + add, with per-row History), `ExerciseFormModal.tsx` (create/edit/delete a
-    library exercise; multi-select muscle groups; "Create" vs "Create & add"),
-    `ExerciseProgressModal.tsx` (chart + history), `WorkoutDetailModal.tsx`
+    sets-per-muscle-group from logged workouts). Workout flow, all under
+    `app/(app)/`: `workout.tsx` (active workout), `exercise-picker.tsx`
+    (search/create + add), `exercise-form.tsx` (create/edit/delete a library
+    exercise; multi-select muscle groups; "Create" vs "Create & add", the latter
+    routed by the `addTo` param), `exercise-progress.tsx` (chart + history, with an
+    Edit button when the exercise is still in the library), `workout-detail.tsx`
     (read-only view of a finished workout — totals, the trained-muscle body map +
     strength summary, then every exercise/set/note);
     `src/components/LineChart.tsx` (pure-`View` progression line — no SVG/native
     module, so it renders identically in Expo Go). The **body map + strength
-    summary** cards are shared between the post-workout `WorkoutSummaryScreen` and
-    `WorkoutDetailModal` via `src/components/WorkoutRecap.tsx`
+    summary** cards are shared between the post-workout `summary.tsx` and
+    `workout-detail.tsx` via `src/components/WorkoutRecap.tsx`
     (`MusclesTrainedCard` + `StrengthSummaryCard`, both scoped to a single workout
     and Pro-free); PRs are summary-only (time-relative).
   - Rest timer: `src/workouts/RestTimerContext.tsx` (`RestTimerProvider` +
@@ -345,15 +382,16 @@ over HTTP).
     `RestTimer` bridge in the layout — so changing 1:30 → 3:00 sticks across
     restarts, and `RestTimerContext` stays decoupled from the store (no import
     cycle). UI:
-    `src/screens/RestTimerBar.tsx` (control above the workout footer) and
-    `src/screens/RestPill.tsx` (tap-to-resume pill shown on the tab screens while
+    `src/components/RestTimerBar.tsx` (control above the workout footer) and
+    `src/components/RestPill.tsx` (tap-to-resume pill shown on the tab screens while
     a minimized workout is resting). Auto-starts when a set is added; also manual
     start/skip/±15s. Tabs use `@expo/vector-icons` (Ionicons; bundled with Expo).
 - Pro paywall (`src/purchases/`): `PurchaseProvider` + `usePurchases()`
   (`PurchaseContext.tsx`) expose `isPro`/`entitlement`/`trialDaysLeft`/`busy` plus
   `openPaywall()`, `startFreeTrial()`, `subscribe(plan)` and
   `manageSubscription()`. Provider is mounted above the signed-in app in
-  `app/(app)/_layout.tsx` (under `AuthProvider`) and renders the `PaywallSheet`.
+  `app/(app)/_layout.tsx` (under `AuthProvider`); `openPaywall()` is just
+  `router.push("/paywall")`.
   - **`isPro` comes only from the server** (`user.entitlement`, itself cached in
     SecureStore by `AuthContext`, so offline still works). There is **no local
     entitlement store** — the old simulated-StoreKit `iap.ts` and
@@ -368,7 +406,7 @@ over HTTP).
     still picked up by `AuthContext`'s refresh-on-foreground.
   - Return URLs use `Linking.createURL()` so the deep link works under both Expo
     Go (`exp://…`) and a real build (`workouttracker://…`).
-  - `PaywallSheet.tsx` has two states: trial-eligible → one-tap no-card trial
+  - `app/(app)/paywall.tsx` has two states: trial-eligible → one-tap no-card trial
     (never opens a browser), with "subscribe now instead" underneath; otherwise
     the annual/monthly picker → Checkout. Plan labels live in `plans.ts` and must
     be kept in step with the Stripe prices (there's no store product to read
@@ -378,8 +416,8 @@ over HTTP).
   Gated UI is wrapped in `src/components/ProGate.tsx`, which blurs its children
   (`expo-blur` `BlurView`, bundled in Expo Go), makes them non-interactive, and
   overlays a "Requires Pro" button when `locked`. Used on the exercise progress
-  chart + older history rows (`ExerciseProgressModal.tsx`, latest session stays
-  visible) and the muscle-activity + strength-ratings cards (`ProfileScreen.tsx`).
+  chart + older history rows (`exercise-progress.tsx`, latest session stays
+  visible) and the muscle-activity + strength-ratings cards (the Me tab).
 - Storage: **local-first with an iCloud backup mirror**, both behind
   `src/storage/storage.ts` (`loadJSON`/`saveJSON` + `STORAGE_KEYS` — the single
   swap point; only `WorkoutContext` calls it). AsyncStorage

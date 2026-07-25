@@ -1,4 +1,5 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { router } from "expo-router";
 import { StyleSheet, Text, View } from "react-native";
 import { GlassPressable } from "../components/ui";
 import { theme } from "../theme";
@@ -7,7 +8,7 @@ import { useWorkouts } from "../workouts/WorkoutContext";
 
 // Floating "Resume workout" control (live elapsed time) shown while minimized.
 export function ResumeBar() {
-  const { active, resumeWorkout } = useWorkouts();
+  const { active } = useWorkouts();
   const now = useNow(active !== null);
 
   if (!active) return null;
@@ -21,7 +22,7 @@ export function ResumeBar() {
         tint={theme.colors.accent}
         surfaceStyle={styles.pill}
         fallbackStyle={styles.pillSolid}
-        onPress={resumeWorkout}
+        onPress={() => router.push("/workout")}
         accessibilityLabel={`Resume workout. ${formatClock(elapsed)} elapsed.`}
       >
         <Ionicons name="barbell" size={18} color="#FFFFFF" />

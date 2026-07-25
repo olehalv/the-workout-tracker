@@ -1,16 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
-import { type ReactNode, useState } from "react";
+import type { ReactNode } from "react";
 import { type StyleProp, StyleSheet, Text, View, type ViewStyle } from "react-native";
-import { PaywallSheet } from "../purchases/PaywallSheet";
 import { usePurchases } from "../purchases/PurchaseContext";
 import { PRO_PRICE_LABEL, PRO_TRIAL_DAYS } from "../purchases/plans";
 import { theme } from "../theme";
 import { GlassPressable } from "./ui";
 
 // Blurs Pro-only children and overlays a subscribe button when `locked`.
-// The paywall sheet is rendered here (not at the provider) so it presents inside
-// whatever modal the gate lives in — a Modal can't stack above an ancestor's Modal.
 export function ProGate({
   locked,
   children,
@@ -22,8 +19,7 @@ export function ProGate({
   style?: StyleProp<ViewStyle>;
   compact?: boolean;
 }) {
-  const { entitlement } = usePurchases();
-  const [paywallOpen, setPaywallOpen] = useState(false);
+  const { entitlement, openPaywall } = usePurchases();
 
   // Same container box when unlocked, so toggling locked doesn't shift layout.
   if (!locked) return <View style={style}>{children}</View>;
@@ -43,7 +39,7 @@ export function ProGate({
           tint={theme.colors.accent}
           surfaceStyle={styles.cta}
           fallbackStyle={styles.ctaSolid}
-          onPress={() => setPaywallOpen(true)}
+          onPress={openPaywall}
         >
           <Text style={styles.ctaText}>
             {entitlement.trialEligible ? "Try Pro free" : `Requires Pro · ${PRO_PRICE_LABEL}`}
@@ -57,7 +53,6 @@ export function ProGate({
           </Text>
         ) : null}
       </View>
-      <PaywallSheet visible={paywallOpen} onClose={() => setPaywallOpen(false)} />
     </View>
   );
 }

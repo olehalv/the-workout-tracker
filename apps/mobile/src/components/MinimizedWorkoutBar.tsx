@@ -12,13 +12,15 @@ import { ResumeBar } from "./ResumeBar";
 // this floats above an estimate — tune TAB_BAR_ESTIMATE if it sits too high/low.
 const TAB_BAR_ESTIMATE = 56;
 
+const TAB_ROUTES = new Set(["/", "/templates", "/exercises", "/profile"]);
+
 export function MinimizedWorkoutBar() {
   const { active } = useWorkouts();
   const { running } = useRestTimer();
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
 
-  if (!active) return null;
+  if (!active || !TAB_ROUTES.has(pathname)) return null;
 
   const content = running ? <RestPill /> : pathname !== "/" ? <ResumeBar /> : null;
   if (!content) return null;

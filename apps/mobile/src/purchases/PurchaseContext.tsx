@@ -1,4 +1,5 @@
 import * as Linking from "expo-linking";
+import { router } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { createContext, type ReactNode, useCallback, useContext, useMemo, useState } from "react";
 import { Alert } from "react-native";
@@ -11,7 +12,6 @@ import {
   startTrial as startTrialRequest,
 } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
-import { PaywallSheet } from "./PaywallSheet";
 import type { ProPlan } from "./plans";
 
 interface PurchaseContextValue {
@@ -38,12 +38,11 @@ const CONFIRM_INTERVAL_MS = 1_500;
 
 export function PurchaseProvider({ children }: { children: ReactNode }) {
   const { user, token, refresh } = useAuth();
-  const [paywallOpen, setPaywallOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const entitlement = user?.entitlement ?? NO_ENTITLEMENT;
 
-  const openPaywall = useCallback(() => setPaywallOpen(true), []);
+  const openPaywall = useCallback(() => router.push("/paywall"), []);
 
   const waitForPro = useCallback(
     async (budgetMs: number): Promise<boolean> => {
@@ -163,12 +162,7 @@ export function PurchaseProvider({ children }: { children: ReactNode }) {
     [entitlement, busy, openPaywall, startFreeTrial, subscribe, manageSubscription],
   );
 
-  return (
-    <PurchaseContext.Provider value={value}>
-      {children}
-      <PaywallSheet visible={paywallOpen} onClose={() => setPaywallOpen(false)} />
-    </PurchaseContext.Provider>
-  );
+  return <PurchaseContext.Provider value={value}>{children}</PurchaseContext.Provider>;
 }
 
 export function usePurchases(): PurchaseContextValue {

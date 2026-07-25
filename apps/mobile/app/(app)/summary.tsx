@@ -1,13 +1,21 @@
-import { useMemo, useState } from "react";
+import { Redirect, router } from "expo-router";
+import { useMemo } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { Button, Card, Stat, StatGrid } from "../components/ui";
-import { MusclesTrainedCard, StrengthSummaryCard } from "../components/WorkoutRecap";
-import { theme } from "../theme";
-import { elapsedMs, formatDuration, formatTimeOfDay } from "../workouts/time";
-import { templateSeed, topSet, totalSets, totalVolume, type Workout } from "../workouts/types";
-import { fmtWeight } from "../workouts/units";
-import { useWorkouts } from "../workouts/WorkoutContext";
-import { PresetFormModal } from "./PresetFormModal";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Button, Card, Stat, StatGrid } from "../../src/components/ui";
+import { MusclesTrainedCard, StrengthSummaryCard } from "../../src/components/WorkoutRecap";
+import { theme } from "../../src/theme";
+import { useTemplateDraft } from "../../src/workouts/TemplateDraftContext";
+import { elapsedMs, formatDuration, formatTimeOfDay } from "../../src/workouts/time";
+import {
+  templateSeed,
+  topSet,
+  totalSets,
+  totalVolume,
+  type Workout,
+} from "../../src/workouts/types";
+import { fmtWeight } from "../../src/workouts/units";
+import { useWorkouts } from "../../src/workouts/WorkoutContext";
 
 interface PersonalRecord {
   name: string;
@@ -42,13 +50,19 @@ function newPRs(finished: Workout, workouts: Workout[]): PersonalRecord[] {
 }
 
 // Post-workout recap shown right after finishing. Intentionally free — no Pro gate.
-export function WorkoutSummaryScreen() {
+export default function SummaryRoute() {
   const { summary, dismissSummary, workouts, unit } = useWorkouts();
-  const [savePresetOpen, setSavePresetOpen] = useState(false);
+  const draft = useTemplateDraft();
+  const insets = useSafeAreaInsets();
 
   const prs = useMemo(() => (summary ? newPRs(summary, workouts) : []), [summary, workouts]);
 
-  if (!summary) return null;
+  if (!summary) return <Redirect href="/" />;
+
+  const done = () => {
+    dismissSummary();
+    router.back();
+  };
 
   const duration = formatDuration(elapsedMs(summary.startedAt, summary.finishedAt ?? Date.now()));
   const stats: Array<{ label: string; value: string }> = [
@@ -59,63 +73,58 @@ export function WorkoutSummaryScreen() {
   ];
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
-      showsVerticalScrollIndicator={false}
-    >
-      <View style={styles.header}>
-        <Text style={styles.eyebrow}>Workout complete</Text>
-        <Text style={styles.title}>Nice work 💪</Text>
-        <Text style={styles.subtitle}>
-          Finished at {formatTimeOfDay(summary.finishedAt ?? Date.now())}
-        </Text>
-      </View>
+    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.header}>
+          <Text style={styles.eyebrow}>Workout complete</Text>
+          <Text style={styles.title}>Nice work 💪</Text>
+          <Text style={styles.subtitle}>
+            Finished at {formatTimeOfDay(summary.finishedAt ?? Date.now())}
+          </Text>
+        </View>
 
-      <StatGrid style={styles.statsGrid}>
-        {stats.map((s) => (
-          <Stat
-            key={s.label}
-            style={styles.statTile}
-            valueSize={24}
-            label={s.label}
-            value={s.value}
-          />
-        ))}
-      </StatGrid>
-
-      {prs.length > 0 ? (
-        <Card padding={5} style={styles.prCard}>
-          <Text style={styles.prCardTitle}>🏆 New personal records</Text>
-          {prs.map((pr) => (
-            <View key={pr.name} style={styles.prRow}>
-              <Text style={styles.prName}>{pr.name}</Text>
-              <Text style={styles.prValue}>
-                {fmtWeight(pr.weight, unit)} × {pr.reps}
-              </Text>
-            </View>
+        <StatGrid style={styles.statsGrid}>
+          {stats.map((s) => (
+            <Stat
+              key={s.label}
+              style={styles.statTile}
+              valueSize={24}
+              label={s.label}
+              value={s.value}
+            />
           ))}
-        </Card>
-      ) : null}
+        </StatGrid>
 
-      <MusclesTrainedCard workout={summary} />
-      <StrengthSummaryCard workout={summary} />
+        {prs.length > 0 ? (
+          <Card padding={5} style={styles.prCard}>
+            <Text style={styles.prCardTitle}>🏆 New personal records</Text>
+            {prs.map((pr) => (
+              <View key={pr.name} style={styles.prRow}>
+                <Text style={styles.prName}>{pr.name}</Text>
+                <Text style={styles.prValue}>
+                  {fmtWeight(pr.weight, unit)} × {pr.reps}
+                </Text>
+              </View>
+            ))}
+          </Card>
+        ) : null}
 
-      <Button title="Done" onPress={dismissSummary} style={styles.done} />
+        <MusclesTrainedCard workout={summary} />
+        <StrengthSummaryCard workout={summary} />
 
-      {summary.exercises.length > 0 ? (
-        <Pressable onPress={() => setSavePresetOpen(true)} hitSlop={6} style={styles.savePreset}>
-          <Text style={styles.savePresetText}>Save as template</Text>
-        </Pressable>
-      ) : null}
+        <Button title="Done" onPress={done} style={styles.done} />
 
-      <PresetFormModal
-        visible={savePresetOpen}
-        preset={null}
-        initialExercises={templateSeed(summary)}
-        onClose={() => setSavePresetOpen(false)}
-      />
-    </ScrollView>
+        {summary.exercises.length > 0 ? (
+          <Pressable
+            onPress={() => draft.openNew(templateSeed(summary))}
+            hitSlop={6}
+            style={styles.savePreset}
+          >
+            <Text style={styles.savePresetText}>Save as template</Text>
+          </Pressable>
+        ) : null}
+      </ScrollView>
+    </View>
   );
 }
 

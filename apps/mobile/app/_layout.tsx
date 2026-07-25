@@ -2,7 +2,7 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Appearance } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { SafeAreaProvider } from "react-native-safe-area-context";
+import { initialWindowMetrics, SafeAreaProvider } from "react-native-safe-area-context";
 import { AuthProvider } from "../src/auth/AuthContext";
 import { theme } from "../src/theme";
 
@@ -14,7 +14,12 @@ Appearance.setColorScheme("dark");
 export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
+      {/* Screens read insets via useSafeAreaInsets(), never <SafeAreaView>: that
+          component re-measures itself natively and lands on 0 the first time a screen
+          mounts inside a just-presented modal view controller (correct on reopen,
+          which is what makes it look like a one-off glitch). initialMetrics seeds the
+          hook synchronously so the very first frame is already inset. */}
+      <SafeAreaProvider initialMetrics={initialWindowMetrics}>
         <AuthProvider>
           <StatusBar style="light" />
           <Stack

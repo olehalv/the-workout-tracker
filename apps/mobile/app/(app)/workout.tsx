@@ -1,5 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { useMemo, useState } from "react";
+import { Redirect, router } from "expo-router";
+import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -15,25 +16,18 @@ import ReorderableList, {
   useIsActive,
   useReorderableDrag,
 } from "react-native-reorderable-list";
-import { REORDER_CELL_ANIMATIONS } from "../components/reorder";
-import { Button, Card, common, GlassPressable } from "../components/ui";
-import { theme } from "../theme";
-import { useRestTimer } from "../workouts/RestTimerContext";
-import { elapsedMs, formatClock, formatTimeOfDay, useNow } from "../workouts/time";
-import type {
-  LibraryExercise,
-  ProgressPoint,
-  WorkoutExercise,
-  WorkoutSet,
-} from "../workouts/types";
-import { templateSeed, totalSets, totalVolume } from "../workouts/types";
-import { fromDisplayWeight, toDisplayWeight, type WeightUnit } from "../workouts/units";
-import { useWorkouts } from "../workouts/WorkoutContext";
-import { ExerciseFormModal } from "./ExerciseFormModal";
-import { ExercisePickerModal } from "./ExercisePickerModal";
-import { ExerciseProgressModal } from "./ExerciseProgressModal";
-import { PresetFormModal } from "./PresetFormModal";
-import { RestTimerBar } from "./RestTimerBar";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { RestTimerBar } from "../../src/components/RestTimerBar";
+import { REORDER_CELL_ANIMATIONS } from "../../src/components/reorder";
+import { Button, Card, common, GlassPressable } from "../../src/components/ui";
+import { theme } from "../../src/theme";
+import { useRestTimer } from "../../src/workouts/RestTimerContext";
+import { useTemplateDraft } from "../../src/workouts/TemplateDraftContext";
+import { elapsedMs, formatClock, formatTimeOfDay, useNow } from "../../src/workouts/time";
+import type { ProgressPoint, WorkoutExercise, WorkoutSet } from "../../src/workouts/types";
+import { templateSeed, totalSets, totalVolume } from "../../src/workouts/types";
+import { fromDisplayWeight, toDisplayWeight, type WeightUnit } from "../../src/workouts/units";
+import { useWorkouts } from "../../src/workouts/WorkoutContext";
 
 // 0 means "not logged".
 function toReps(t: string): number {
@@ -47,7 +41,7 @@ function toWeight(t: string): number {
   return Number.isFinite(n) && n >= 0 ? n : 0;
 }
 
-export function WorkoutScreen() {
+export default function WorkoutRoute() {
   const {
     active,
     library,
@@ -59,148 +53,149 @@ export function WorkoutScreen() {
     setExerciseNote,
     finishWorkout,
     discardWorkout,
-    minimizeWorkout,
+    setMinimized,
     progressFor,
+    summary,
     unit,
   } = useWorkouts();
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const [progressExercise, setProgressExercise] = useState<LibraryExercise | null>(null);
-  const [editingExercise, setEditingExercise] = useState<LibraryExercise | null>(null);
-  const [savePresetOpen, setSavePresetOpen] = useState(false);
+  const draft = useTemplateDraft();
+  const insets = useSafeAreaInsets();
   const rest = useRestTimer();
   const now = useNow(active !== null);
 
-  if (!active) return null;
+  useEffect(() => {
+    setMinimized(false);
+    return () => setMinimized(true);
+  }, [setMinimized]);
+
+  if (!active) return <Redirect href={summary ? "/summary" : "/"} />;
 
   const elapsed = elapsedMs(active.startedAt, now);
 
   const hasLoggedSet = active.exercises.some((e) => e.sets.some((s) => s.reps > 0));
-  const presetSeed = templateSeed(active);
 
   const confirmDiscard = () => {
     Alert.alert("Discard workout?", "This workout and its logged sets will be deleted.", [
       { text: "Keep", style: "cancel" },
-      { text: "Discard", style: "destructive", onPress: discardWorkout },
+      {
+        text: "Discard",
+        style: "destructive",
+        onPress: () => {
+          discardWorkout();
+          router.back();
+        },
+      },
     ]);
   };
 
-  // Falls back to a snapshot if the exercise was since removed from the library.
+  const finish = () => {
+    finishWorkout();
+    router.replace("/summary");
+  };
+
+  // The exercise may since have been removed from the library; its name still
+  // labels the progress screen.
   const openProgress = (ex: WorkoutExercise) => {
-    const found = library.find((l) => l.id === ex.exerciseId);
-    setProgressExercise(
-      found ?? { id: ex.exerciseId, name: ex.name, muscleGroups: [], custom: false },
-    );
+    router.push({
+      pathname: "/exercise-progress",
+      params: { id: ex.exerciseId, name: ex.name },
+    });
   };
 
   const openEdit = (ex: WorkoutExercise) => {
     const found = library.find((l) => l.id === ex.exerciseId);
-    if (found) setEditingExercise(found);
+    if (found) router.push({ pathname: "/exercise-form", params: { id: found.id } });
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
-      <View style={styles.header}>
-        <View style={styles.headerMain}>
-          <View style={styles.eyebrowRow}>
-            <Text style={styles.eyebrow}>Active workout</Text>
-            <View style={styles.clock}>
-              <Ionicons name="time-outline" size={14} color={theme.colors.accent} />
-              <Text style={styles.clockText}>{formatClock(elapsed)}</Text>
+    <View style={[styles.screen, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <View style={styles.header}>
+          <View style={styles.headerMain}>
+            <View style={styles.eyebrowRow}>
+              <Text style={styles.eyebrow}>Active workout</Text>
+              <View style={styles.clock}>
+                <Ionicons name="time-outline" size={14} color={theme.colors.accent} />
+                <Text style={styles.clockText}>{formatClock(elapsed)}</Text>
+              </View>
             </View>
+            <Text style={styles.title}>
+              {totalSets(active)} sets · {Math.round(toDisplayWeight(totalVolume(active), unit))}{" "}
+              {unit}
+            </Text>
+            <Text style={styles.startedAt}>Started {formatTimeOfDay(active.startedAt)}</Text>
           </View>
-          <Text style={styles.title}>
-            {totalSets(active)} sets · {Math.round(toDisplayWeight(totalVolume(active), unit))}{" "}
-            {unit}
-          </Text>
-          <Text style={styles.startedAt}>Started {formatTimeOfDay(active.startedAt)}</Text>
+          <Pressable onPress={() => router.back()} hitSlop={8}>
+            <Text style={styles.minimizeText}>Minimize</Text>
+          </Pressable>
         </View>
-        <Pressable onPress={minimizeWorkout} hitSlop={8}>
-          <Text style={styles.minimizeText}>Minimize</Text>
-        </Pressable>
-      </View>
 
-      <ReorderableList
-        data={active.exercises}
-        keyExtractor={(ex) => ex.id}
-        onReorder={({ from, to }) => reorderExercises(from, to)}
-        cellAnimations={REORDER_CELL_ANIMATIONS}
-        shouldUpdateActiveItem
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-        renderItem={({ item: ex }: ReorderableListRenderItemInfo<WorkoutExercise>) => (
-          <ExerciseCard
-            exercise={ex}
-            unit={unit}
-            // Excludes the active workout — it isn't finished yet.
-            previous={progressFor(ex.exerciseId).at(-1) ?? null}
-            onAddSet={() => {
-              addSet(ex.id);
-              rest.start(); // the previous set is done → start resting
-            }}
-            onUpdateSet={(sid, patch) => updateSet(ex.id, sid, patch)}
-            onRemoveSet={(sid) => removeSet(ex.id, sid)}
-            onChangeNote={(note) => setExerciseNote(ex.id, note)}
-            onRemove={() => removeExercise(ex.id)}
-            onOpenProgress={() => openProgress(ex)}
-            onEdit={() => openEdit(ex)}
-          />
-        )}
-        ListFooterComponent={
-          <>
-            <Button
-              title="+ Add exercise"
-              variant="dashed"
-              onPress={() => setPickerOpen(true)}
-              style={styles.addExercise}
+        <ReorderableList
+          data={active.exercises}
+          keyExtractor={(ex) => ex.id}
+          onReorder={({ from, to }) => reorderExercises(from, to)}
+          cellAnimations={REORDER_CELL_ANIMATIONS}
+          shouldUpdateActiveItem
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          renderItem={({ item: ex }: ReorderableListRenderItemInfo<WorkoutExercise>) => (
+            <ExerciseCard
+              exercise={ex}
+              unit={unit}
+              // Excludes the active workout — it isn't finished yet.
+              previous={progressFor(ex.exerciseId).at(-1) ?? null}
+              onAddSet={() => {
+                addSet(ex.id);
+                rest.start(); // the previous set is done → start resting
+              }}
+              onUpdateSet={(sid, patch) => updateSet(ex.id, sid, patch)}
+              onRemoveSet={(sid) => removeSet(ex.id, sid)}
+              onChangeNote={(note) => setExerciseNote(ex.id, note)}
+              onRemove={() => removeExercise(ex.id)}
+              onOpenProgress={() => openProgress(ex)}
+              onEdit={() => openEdit(ex)}
             />
+          )}
+          ListFooterComponent={
+            <>
+              <Button
+                title="+ Add exercise"
+                variant="dashed"
+                onPress={() => router.push("/exercise-picker")}
+                style={styles.addExercise}
+              />
 
-            {active.exercises.length > 0 ? (
-              <Pressable
-                onPress={() => setSavePresetOpen(true)}
-                hitSlop={6}
-                style={styles.savePreset}
-              >
-                <Text style={styles.savePresetText}>Save as template</Text>
-              </Pressable>
-            ) : null}
-          </>
-        }
-      />
-
-      <RestTimerBar timer={rest} />
-
-      <View style={styles.footer}>
-        <Button title="Discard" variant="danger" onPress={confirmDiscard} style={styles.discard} />
-        <Button
-          title="Finish"
-          disabled={!hasLoggedSet}
-          onPress={finishWorkout}
-          style={styles.finish}
+              {active.exercises.length > 0 ? (
+                <Pressable
+                  onPress={() => draft.openNew(templateSeed(active))}
+                  hitSlop={6}
+                  style={styles.savePreset}
+                >
+                  <Text style={styles.savePresetText}>Save as template</Text>
+                </Pressable>
+              ) : null}
+            </>
+          }
         />
-      </View>
 
-      <ExercisePickerModal visible={pickerOpen} onClose={() => setPickerOpen(false)} />
-      <ExerciseProgressModal
-        exercise={progressExercise}
-        onClose={() => setProgressExercise(null)}
-      />
-      <PresetFormModal
-        visible={savePresetOpen}
-        preset={null}
-        initialExercises={presetSeed}
-        onClose={() => setSavePresetOpen(false)}
-      />
-      <ExerciseFormModal
-        visible={editingExercise !== null}
-        exercise={editingExercise}
-        onClose={() => setEditingExercise(null)}
-      />
-    </KeyboardAvoidingView>
+        <RestTimerBar timer={rest} />
+
+        <View style={styles.footer}>
+          <Button
+            title="Discard"
+            variant="danger"
+            onPress={confirmDiscard}
+            style={styles.discard}
+          />
+          <Button title="Finish" disabled={!hasLoggedSet} onPress={finish} style={styles.finish} />
+        </View>
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 
@@ -404,6 +399,10 @@ function SetRow({
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+  },
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,

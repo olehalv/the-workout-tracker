@@ -89,8 +89,7 @@ interface WorkoutContextValue {
   setRestDuration: (seconds: number) => void;
   startWorkout: () => void;
   startWorkoutFromPreset: (preset: WorkoutPreset) => void;
-  minimizeWorkout: () => void;
-  resumeWorkout: () => void;
+  setMinimized: (minimized: boolean) => void;
   createPreset: (name: string, exercises: PresetExercise[]) => WorkoutPreset;
   updatePreset: (id: string, patch: Partial<Pick<WorkoutPreset, "name" | "exercises">>) => void;
   deletePreset: (id: string) => void;
@@ -216,9 +215,6 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
       })),
     });
   }, []);
-
-  const minimizeWorkout = useCallback(() => setMinimized(true), []);
-  const resumeWorkout = useCallback(() => setMinimized(false), []);
 
   const createPreset = useCallback((name: string, exercises: PresetExercise[]): WorkoutPreset => {
     const preset: WorkoutPreset = { id: newId(), name: name.trim(), exercises };
@@ -449,8 +445,7 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
       setRestDuration,
       startWorkout,
       startWorkoutFromPreset,
-      minimizeWorkout,
-      resumeWorkout,
+      setMinimized,
       createPreset,
       updatePreset,
       deletePreset,
@@ -484,8 +479,6 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
       restDuration,
       startWorkout,
       startWorkoutFromPreset,
-      minimizeWorkout,
-      resumeWorkout,
       createPreset,
       updatePreset,
       deletePreset,

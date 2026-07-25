@@ -1,4 +1,5 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { router } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { theme } from "../theme";
 import { useRestTimer } from "../workouts/RestTimerContext";
@@ -12,7 +13,7 @@ function fmt(seconds: number): string {
 
 // Floating rest countdown shown on the tab screens while a workout is minimized.
 export function RestPill() {
-  const { active, resumeWorkout } = useWorkouts();
+  const { active } = useWorkouts();
   const { running, remaining, skip } = useRestTimer();
 
   if (!active || !running) return null;
@@ -21,7 +22,7 @@ export function RestPill() {
     <View style={styles.wrap}>
       <Pressable
         style={({ pressed }) => [styles.pill, pressed && styles.pressed]}
-        onPress={resumeWorkout}
+        onPress={() => router.push("/workout")}
         accessibilityRole="button"
         accessibilityLabel={`Resting ${fmt(remaining)}. Tap to resume workout.`}
       >

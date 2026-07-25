@@ -1,20 +1,18 @@
-import { Redirect, Slot } from "expo-router";
-import type { ReactNode } from "react";
+import { Redirect, router, Stack } from "expo-router";
+import { type ReactNode, useEffect, useRef } from "react";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../src/auth/AuthContext";
+import { MinimizedWorkoutBar } from "../../src/components/MinimizedWorkoutBar";
 import { PurchaseProvider } from "../../src/purchases/PurchaseContext";
-import { MinimizedWorkoutBar } from "../../src/screens/MinimizedWorkoutBar";
-import { WorkoutScreen } from "../../src/screens/WorkoutScreen";
-import { WorkoutSummaryScreen } from "../../src/screens/WorkoutSummaryScreen";
 import { theme } from "../../src/theme";
 import { RestTimerProvider } from "../../src/workouts/RestTimerContext";
+import { TemplateDraftProvider } from "../../src/workouts/TemplateDraftContext";
 import { useWorkouts, WorkoutProvider } from "../../src/workouts/WorkoutContext";
 
-// The active workout and post-workout summary take over the whole screen (hiding the
-// native tab bar) by rendering in place of the tabs' <Slot>, mirroring the pre-router
-// MainScreens gate. The tab bar returns once neither is showing.
-// Bridges the persisted rest-timer default into the store-agnostic RestTimerProvider.
+export const unstable_settings = {
+  anchor: "(tabs)",
+};
+
 function RestTimer({ children }: { children: ReactNode }) {
   const { restDuration, setRestDuration } = useWorkouts();
   return (
@@ -24,29 +22,17 @@ function RestTimer({ children }: { children: ReactNode }) {
   );
 }
 
-function WorkoutGate() {
-  const { active, minimized, summary } = useWorkouts();
+function ActiveWorkoutRestore() {
+  const { isLoaded, active, minimized } = useWorkouts();
+  const done = useRef(false);
 
-  if (active && !minimized) {
-    return (
-      <SafeAreaView style={styles.fill}>
-        <WorkoutScreen />
-      </SafeAreaView>
-    );
-  }
-  if (summary) {
-    return (
-      <SafeAreaView style={styles.fill}>
-        <WorkoutSummaryScreen />
-      </SafeAreaView>
-    );
-  }
-  return (
-    <View style={styles.fill}>
-      <Slot />
-      <MinimizedWorkoutBar />
-    </View>
-  );
+  useEffect(() => {
+    if (!isLoaded || done.current) return;
+    done.current = true;
+    if (active && !minimized) router.push("/workout");
+  }, [isLoaded, active, minimized]);
+
+  return null;
 }
 
 export default function AppLayout() {
@@ -54,9 +40,9 @@ export default function AppLayout() {
 
   if (isRestoring) {
     return (
-      <SafeAreaView style={styles.splash}>
+      <View style={styles.splash}>
         <ActivityIndicator color={theme.colors.textMuted} />
-      </SafeAreaView>
+      </View>
     );
   }
 
@@ -65,9 +51,46 @@ export default function AppLayout() {
   return (
     <PurchaseProvider>
       <WorkoutProvider>
-        <RestTimer>
-          <WorkoutGate />
-        </RestTimer>
+        <TemplateDraftProvider>
+          <RestTimer>
+            <View style={styles.fill}>
+              <Stack
+                screenOptions={{
+                  headerShown: false,
+                  contentStyle: { backgroundColor: theme.colors.background },
+                }}
+              >
+                <Stack.Screen name="(tabs)" />
+                <Stack.Screen
+                  name="workout"
+                  options={{ presentation: "fullScreenModal", gestureEnabled: false }}
+                />
+                <Stack.Screen
+                  name="summary"
+                  options={{ presentation: "fullScreenModal", gestureEnabled: false }}
+                />
+                <Stack.Screen name="workout-detail" options={{ presentation: "modal" }} />
+                <Stack.Screen name="exercise-picker" options={{ presentation: "modal" }} />
+                <Stack.Screen name="exercise-form" options={{ presentation: "modal" }} />
+                <Stack.Screen name="exercise-progress" options={{ presentation: "modal" }} />
+                <Stack.Screen name="template-picker" options={{ presentation: "modal" }} />
+                <Stack.Screen name="template-form" options={{ presentation: "modal" }} />
+                <Stack.Screen
+                  name="paywall"
+                  options={{
+                    presentation: "formSheet",
+                    sheetAllowedDetents: "fitToContents",
+                    sheetGrabberVisible: true,
+                    sheetCornerRadius: theme.radius.lg,
+                    contentStyle: { backgroundColor: theme.colors.surface },
+                  }}
+                />
+              </Stack>
+              <MinimizedWorkoutBar />
+              <ActiveWorkoutRestore />
+            </View>
+          </RestTimer>
+        </TemplateDraftProvider>
       </WorkoutProvider>
     </PurchaseProvider>
   );
