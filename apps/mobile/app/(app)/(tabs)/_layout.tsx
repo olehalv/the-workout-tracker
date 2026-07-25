@@ -1,4 +1,5 @@
-import { Icon, Label, NativeTabs } from "expo-router/unstable-native-tabs";
+import { Icon, Label } from "expo-router";
+import { NativeTabs } from "expo-router/unstable-native-tabs";
 
 // The real iOS tab bar (UITabBarController) — on iOS 26 it gets the system Liquid Glass
 // treatment for free. Each trigger points at a directory holding that tab's own Stack,

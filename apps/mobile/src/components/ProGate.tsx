@@ -68,7 +68,7 @@ const styles = StyleSheet.create({
     minHeight: 132,
   },
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: "center",
     justifyContent: "center",
     gap: theme.space(2),

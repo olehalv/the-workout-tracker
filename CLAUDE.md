@@ -9,10 +9,10 @@ PRIORITIZE ME:
   `expo-glass-effect` surfaces. Reach for a hand-rolled `View`/`Animated`
   substitute only when nothing native exists, and say so in the diff. The one
   hard constraint on top of this: whatever you pick must actually be implemented
-  in the native modules **Expo Go on SDK 54** ships — a newer JS API whose native
-  prop is missing (e.g. native-stack's `unstable_headerLeftItems`, which needs a
-  `react-native-screens` newer than 4.16) silently does nothing, so check the
-  installed native source before relying on it.
+  in the native modules **Expo Go on SDK 57** ships — a newer JS API whose native
+  prop is missing silently does nothing, so check the installed native source before
+  relying on it. (The long-standing example, native-stack's `unstable_headerLeftItems`,
+  is no longer blocked as of SDK 57 — see the Headers section.)
 - **Comments:** default to **zero** comments. Add one *only* to document a
   non-obvious **external** gotcha — a library bug, an OS/runtime/Expo Go footgun, an
   API that behaves surprisingly. **Never** explain your own code, narrate *what* it
@@ -160,23 +160,38 @@ over HTTP).
 
 ### apps/mobile — Expo / React Native
 - Purpose: the real product. All workout tracking features live here.
-- Stack: Expo SDK 54 (RN 0.81), React Native, TypeScript. SDK 54 is the stable
-  release the public App Store Expo Go supports — do not bump to a prerelease SDK
-  (e.g. 57), or Expo Go on physical devices rejects the project ("requires a newer
-  version of Expo Go"). `react`/`react-native` are pinned to SDK 54's versions. Root
+- Stack: Expo SDK 57 (RN 0.86), React Native, TypeScript 6.
+  `react`/`react-native` are pinned to SDK 57's versions. Root
   `overrides` enforce a **single React across the monorepo** (`react`/`react-dom`
-  → `19.1.0`) plus the `react-native-is-edge-to-edge` RN pin: without the React
+  → `19.2.3`) plus the `react-native-is-edge-to-edge` RN pin: without the React
   override, `expo-router`'s dep tree resolves loose `react` ranges to a newer 19.x
   and hoists it, leaving the mobile bundle with **two React copies** → "Cannot read
   property 'useState' of null" on launch. Next 16 (web) accepts `^19.0.0`, so it's
-  fine on 19.1.0 too. Bump these alongside the Expo SDK's React. (Overrides only
+  fine on 19.2.3 too. Bump these alongside the Expo SDK's React. (Overrides only
   re-resolve on a clean install — `rm -rf node_modules package-lock.json`; a plain
   `npm install` reconciles against existing `node_modules` and silently keeps the
   old version.)
+- **Expo Go on a physical iPhone is no longer a free path (changed in SDK 56).**
+  Expo Go is **not on the App Store** for SDK 56+; installing it on a device means
+  building your own with `npx eas-cli@latest go` and distributing it to yourself
+  over TestFlight, which needs a **paid Apple Developer account**. The **iOS
+  Simulator is unaffected** — `npx expo start` then `i` still downloads and installs
+  Expo Go automatically, for free. So "testable in Expo Go" below now means *the
+  simulator* unless you have a developer account; the alternative on device is a dev
+  build (`npx expo run:ios --device`), which this project already needs for iCloud.
+- SDK 56 raised the floors: **iOS 16.4+** (drops iPhone 6s/7, iPad Air 2/mini 4),
+  **Xcode 26.4+** to compile, **Node 20.19.4+**.
+- **`expo/fetch` is now the default `globalThis.fetch`** (SDK 56). `src/api/client.ts`
+  calls bare `fetch`, so it silently runs on Expo's implementation rather than RN's;
+  set `EXPO_PUBLIC_USE_RN_FETCH=1` to opt out if a networking difference ever bites.
+- **`@expo/vector-icons` is deprecated** in favour of the scoped
+  `@react-native-vector-icons/*` packages, and `expo` no longer depends on it (it's an
+  explicit dependency here). Still works and still ships the Ionicons the tabs/rest
+  timer use; migrate with `npx @react-native-vector-icons/codemod` when convenient.
 - **Reanimated / worklets are pinned EXACT — Expo Go footgun.** Hold-and-drag
   reorder (the active-workout exercise list and the template form) uses
   `react-native-reorderable-list`, which builds on `react-native-gesture-handler` +
-  `react-native-reanimated` 4 (all bundled in Expo Go on SDK 54; the root
+  `react-native-reanimated` 4 (all bundled in Expo Go on SDK 57; the root
   `GestureHandlerRootView` in `app/_layout.tsx` is required for the gestures; since
   both lists are plain routes rather than RN `Modal`s, that single root covers them).
   The library's **default cell animation scales the dragged
@@ -185,14 +200,16 @@ over HTTP).
   (`src/components/reorder.ts`, `REORDER_CELL_ANIMATIONS`) and signal "picked up" with
   a border + shadow on the card instead. Pass it to every `ReorderableList`. **Reanimated hard-crashes on any
   JS↔native version mismatch**, and Expo Go ships the exact native versions its SDK
-  pins — so `react-native-reanimated` (`4.1.1`) and `react-native-worklets`
-  (`0.5.1`) are pinned without a range. `expo install` / `npm update` float them to
+  pins — so `react-native-reanimated` (`4.5.0`) and `react-native-worklets`
+  (`0.10.0`) are pinned without a range. `expo install` / `npm update` float them to
   newer patches that then crash Expo Go with "Exception in HostFunction"; keep both
   matched to `expo/bundledNativeModules.json` when bumping the SDK. Reanimated 4
-  needs the New Architecture (SDK 54 default) and its worklets babel plugin, which
+  needs the New Architecture (SDK 57 default) and its worklets babel plugin, which
   `babel-preset-expo` adds automatically — no `babel.config.js` needed.
   `react-native-draggable-flatlist` does **not** work with reanimated 4 (its
   published build ships v2-era worklets → crashes on import); don't reach for it.
+  Known SDK 57 regression: reanimated raises memory use ~25–30% under Hermes V1 even
+  on screens that never animate; the workaround is worklets bundle mode.
 - Login (implemented): Sign in with Apple via `expo-apple-authentication`. The
   `identityToken` is POSTed to the `web` app, which returns a session JWT; the
   token + user are persisted with `expo-secure-store`. Source layout:
@@ -278,12 +295,16 @@ over HTTP).
   `app/(app)/(tabs)/_layout.tsx` uses `NativeTabs` from
   `expo-router/unstable-native-tabs` — a real `UITabBarController`, so on **iOS 26
   it gets the system Liquid Glass** treatment for free (and falls back to a standard
-  native bar on older iOS). The native tab module is **bundled in Expo Go on SDK 54**,
+  native bar on older iOS). The native tab module is **bundled in Expo Go on SDK 57**,
   so the real native bar — including iOS 26 Liquid Glass — renders in Expo Go on the
   iOS simulator with **no dev build needed** (verified 2026-07; only the
   `getImageSourceSync` custom-icon path needs a dev build, not the tab bar itself).
+  On SDK 57 `NativeTabs` still comes from `expo-router/unstable-native-tabs`, but its
+  `Icon`/`Label`/`Badge` children moved to the **`expo-router` root** — they're now
+  shared primitives serving both native tabs and `Stack.Toolbar`, so importing them
+  from `unstable-native-tabs` is a compile error.
   This replaced the old hand-rolled `View`/`expo-glass-effect` tab bar
-  (`src/navigation/AppTabs.tsx`, deleted), which could only *mimic* glass. **Native tabs are alpha on SDK 54** (`unstable-`); the
+  (`src/navigation/AppTabs.tsx`, deleted), which could only *mimic* glass. **Native tabs are alpha on SDK 57** (`unstable-`); the
   API may change. Four tabs, each a route file under `(tabs)/`: **Workouts**
   (`index.tsx`), **Templates**, **Exercises** (heading "Exercises & progress"), and
   **Me**; SF Symbols for the icons. **Each trigger points at a directory holding
@@ -315,9 +336,15 @@ over HTTP).
   `RestTimerBar`/`WeekCalendar`/`BodyMap`/`LineChart`/`WorkoutRecap`/`ProGate`.
 - **Headers are real headers.** There is no `ScreenHeader` component any more —
   titles and bar buttons are navigation options, not JSX at the top of the body:
+  - **Never import from `@react-navigation/*`.** SDK 56 removed expo-router's
+    dependency on it, so those packages aren't installed at all and the imports fail to
+    resolve. Everything we used is re-exported from the **`expo-router` root**:
+    `ThemeProvider`, `DarkTheme`, `type Theme`, `type NativeStackNavigationOptions`.
+    (`expo-router/react-navigation` also re-exports the `native`/`elements` surface if
+    you need something the root doesn't carry.)
   - Shared config lives in `src/navigation/headerOptions.ts`: `tabStackOptions`
-    (large titles) and `modalStackOptions`, plus `navigationTheme` — a React
-    Navigation `DarkTheme` carrying our tokens, applied once via `ThemeProvider` in
+    (large titles) and `modalStackOptions`, plus `navigationTheme` — a
+    `DarkTheme` carrying our tokens, applied once via `ThemeProvider` in
     `app/_layout.tsx`. Each route declares its own
     `<Stack.Screen options={{ title, headerLeft, headerRight }} />` from inside the
     screen, so dynamic titles (the exercise name, a workout's date, New vs Edit)
@@ -337,9 +364,14 @@ over HTTP).
     labelled "Back" — never "Cancel", "Minimize" or anything else** — and `headerRight`
     is "Done" (`prominent`) or a screen-specific action like "Edit". Drill-downs set
     `headerBackVisible: false` and supply their own `HeaderButton label="Back"` rather
-    than the system chevron, so every bar button looks the same. The fully-native `unstable_header*Items` (actual `UIBarButtonItem`s,
-    with iOS 26 glass grouping) is **not** usable yet: the matching native prop is
-    absent from `react-native-screens` 4.16, so it would no-op in Expo Go.
+    than the system chevron, so every bar button looks the same. The fully-native
+    `unstable_header*Items` (actual `UIBarButtonItem`s, with iOS 26 glass grouping) was
+    blocked on SDK 54 because `react-native-screens` 4.16 lacked the native prop —
+    **that blocker is gone on SDK 57**: screens 4.26 ships `RNSBarButtonItem` +
+    `headerLeftBarButtonItems`, and expo-router exposes both `unstable_header*Items` and
+    a `Stack.Toolbar` API. We have **not** migrated to it; `HeaderButton` still works.
+    Evaluate it on-device before switching, and if you do, switch every screen at once
+    so the bar buttons stay uniform.
   - **Tab screens use iOS large titles**, which makes native-stack transparent the
     header and hand the inset to the screen's primary scroll view. So each tab
     screen's root **is** a `FlatList`/`ScrollView` with
@@ -354,8 +386,8 @@ over HTTP).
   - The accent eyebrow ("Progressive overload", "Library", …) is
     `<SectionLabel tone="accent">` at the top of the tab screen's scroll content,
     i.e. **below** the large title rather than above it. A navigation bar has no
-    slot for it: iOS 26 has `UINavigationItem.subtitle`, but neither
-    `@react-navigation/native-stack` 7.18.5 nor `react-native-screens` 4.16 exposes
+    slot for it: iOS 26 has `UINavigationItem.subtitle`, but neither expo-router 57's
+    native-stack options nor `react-native-screens` 4.26 exposes
     it. Putting it in `headerLeft` does land it above the large title and was tried
     and rejected — that slot is for bar buttons, and the label doesn't collapse with
     the large title, so it lingers beside the small title once scrolled. On the modal
@@ -603,8 +635,10 @@ Per-workspace commands also work, e.g. `npm run ios --workspace mobile`.
 ## Running the app end-to-end
 
 `expo-apple-authentication` is **included in Expo Go**, so the Apple button
-renders and `isAvailableAsync()` returns true there — no Mac, Xcode, or paid
-Apple Developer account needed to sign in on the client. The catch is the
+renders and `isAvailableAsync()` returns true there. Since SDK 56 that's free only
+on the **iOS Simulator** (Expo CLI installs Expo Go for you); Expo Go on a physical
+iPhone is TestFlight-only and needs a paid Apple Developer account — see the mobile
+Stack section. The catch is the
 **backend**: in Expo Go the identity token is issued under Expo Go's own bundle
 id (`host.exp.Exponent`), so its `aud` won't match
 `APPLE_CLIENT_IDS=dev.olehalv.theworkouttracker` and the `web` app will reject
@@ -683,7 +717,7 @@ psql -d the_workout_tracker -c "update users set plan='free', paid_until=null, \
   Go, config-plugin requirements, `app.json` keys, prebuild flags, API
   signatures). A model's training data lags these, so **do not answer Expo / RN /
   Expo Go questions from memory** — check the live docs for the SDK version in
-  `apps/mobile/package.json` (currently Expo `~54`) before asserting anything or
+  `apps/mobile/package.json` (currently Expo `~57`) before asserting anything or
   editing this file. Canonical sources: <https://docs.expo.dev> (per-SDK, use the
   matching version), each package's page under
   <https://docs.expo.dev/versions/latest/sdk/>, and

@@ -1,5 +1,4 @@
-import { DarkTheme, type Theme } from "@react-navigation/native";
-import type { NativeStackNavigationOptions } from "@react-navigation/native-stack";
+import { DarkTheme, type NativeStackNavigationOptions, type Theme } from "expo-router";
 import { theme } from "../theme";
 
 // Header/screen colours come from here, not from per-screen headerStyle overrides:
