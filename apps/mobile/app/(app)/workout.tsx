@@ -20,6 +20,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { RestTimerBar } from "../../src/components/RestTimerBar";
 import { REORDER_CELL_ANIMATIONS } from "../../src/components/reorder";
 import { Button, Card, common, GlassPressable, HeaderButton } from "../../src/components/ui";
+import { useExerciseSelection } from "../../src/navigation/ExerciseSelectionContext";
 import { theme } from "../../src/theme";
 import { useRestTimer } from "../../src/workouts/RestTimerContext";
 import { useTemplateDraft } from "../../src/workouts/TemplateDraftContext";
@@ -59,6 +60,7 @@ export default function WorkoutRoute() {
     unit,
   } = useWorkouts();
   const draft = useTemplateDraft();
+  const selection = useExerciseSelection();
   const insets = useSafeAreaInsets();
   const rest = useRestTimer();
   const now = useNow(active !== null);
@@ -164,7 +166,7 @@ export default function WorkoutRoute() {
               <Button
                 title="+ Add exercise"
                 variant="dashed"
-                onPress={() => router.push("/exercise-picker")}
+                onPress={() => selection.open("workout")}
                 style={styles.addExercise}
               />
 
@@ -222,6 +224,7 @@ function ExerciseCard({
 }) {
   const drag = useReorderableDrag();
   const isActive = useIsActive();
+  const [noteOpen, setNoteOpen] = useState(() => exercise.note.length > 0);
   const previousLabel = useMemo(() => {
     if (!previous) return "No previous record";
     return `Previous: ${previous.topReps} × ${toDisplayWeight(previous.topWeight, unit)} ${unit}`;
@@ -287,14 +290,26 @@ function ExerciseCard({
         <Text style={styles.addSetText}>+ Add set</Text>
       </GlassPressable>
 
-      <TextInput
-        style={styles.noteInput}
-        placeholder="Add a note"
-        placeholderTextColor={theme.colors.textMuted}
-        value={exercise.note}
-        onChangeText={onChangeNote}
-        multiline
-      />
+      {noteOpen ? (
+        <TextInput
+          style={styles.noteInput}
+          placeholder="Note"
+          placeholderTextColor={theme.colors.textMuted}
+          value={exercise.note}
+          onChangeText={onChangeNote}
+          onBlur={() => setNoteOpen(exercise.note.length > 0)}
+          autoFocus={exercise.note.length === 0}
+          multiline
+        />
+      ) : (
+        <Pressable
+          onPress={() => setNoteOpen(true)}
+          hitSlop={8}
+          style={({ pressed }) => [styles.addNote, pressed && common.pressed]}
+        >
+          <Text style={styles.addNoteText}>+ Add a note</Text>
+        </Pressable>
+      )}
     </Card>
   );
 }
@@ -582,6 +597,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: theme.space(3),
     minHeight: 44,
+  },
+  addNote: {
+    alignSelf: "flex-start",
+    paddingVertical: theme.space(2),
+    marginTop: theme.space(2),
+  },
+  addNoteText: {
+    color: theme.colors.textMuted,
+    fontSize: 13,
+    fontWeight: "600",
   },
   addExercise: {
     marginTop: theme.space(1),

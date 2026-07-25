@@ -7,24 +7,37 @@ export function HeaderButton({
   label,
   onPress,
   prominent,
+  disabled,
 }: {
   label: string;
   onPress: () => void;
   prominent?: boolean;
+  disabled?: boolean;
 }) {
   return (
-    <Pressable onPress={onPress} hitSlop={12} style={({ pressed }) => pressed && common.pressed}>
-      <Text style={[styles.label, prominent && styles.prominent]}>{label}</Text>
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      hitSlop={12}
+      style={({ pressed }) => pressed && common.pressed}
+    >
+      <Text style={[styles.label, prominent && styles.prominent, disabled && styles.disabled]}>
+        {label}
+      </Text>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   label: {
+    paddingHorizontal: theme.space(2),
     color: theme.colors.accent,
     fontSize: 17,
   },
   prominent: {
     fontWeight: "600",
+  },
+  disabled: {
+    color: theme.colors.textMuted,
   },
 });

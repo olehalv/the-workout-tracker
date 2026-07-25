@@ -39,14 +39,14 @@ export function ExerciseList({
   header,
   meta,
   onSelect,
-  showAdd,
+  isSelected,
   empty,
 }: {
   exercises: LibraryExercise[];
   header?: ReactElement;
   meta: (exercise: LibraryExercise) => string;
   onSelect: (exercise: LibraryExercise) => void;
-  showAdd?: boolean;
+  isSelected?: (exercise: LibraryExercise) => boolean;
   empty?: string;
 }) {
   const clearance = useMinimizedBarClearance();
@@ -65,7 +65,7 @@ export function ExerciseList({
           name={item.name}
           meta={meta(item)}
           onPress={() => onSelect(item)}
-          showAdd={showAdd}
+          selected={isSelected?.(item)}
         />
       )}
     />
@@ -81,7 +81,7 @@ export function ExerciseBrowser({
   meta,
   onSelectGroup,
   onSelectExercise,
-  showAdd,
+  isSelected,
 }: {
   library: LibraryExercise[];
   query: string;
@@ -89,7 +89,7 @@ export function ExerciseBrowser({
   meta: (exercise: LibraryExercise) => string;
   onSelectGroup: (group: string) => void;
   onSelectExercise: (exercise: LibraryExercise) => void;
-  showAdd?: boolean;
+  isSelected?: (exercise: LibraryExercise) => boolean;
 }) {
   const clearance = useMinimizedBarClearance();
   const q = query.trim().toLowerCase();
@@ -113,7 +113,7 @@ export function ExerciseBrowser({
         header={header}
         meta={meta}
         onSelect={onSelectExercise}
-        showAdd={showAdd}
+        isSelected={isSelected}
         empty="No exercises match."
       />
     );

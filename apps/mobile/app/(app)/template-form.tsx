@@ -18,6 +18,7 @@ import ReorderableList, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { REORDER_CELL_ANIMATIONS } from "../../src/components/reorder";
 import { Button, common, HeaderButton, Input, SectionLabel } from "../../src/components/ui";
+import { useExerciseSelection } from "../../src/navigation/ExerciseSelectionContext";
 import { theme } from "../../src/theme";
 import { type DraftExercise, useTemplateDraft } from "../../src/workouts/TemplateDraftContext";
 import { useWorkouts } from "../../src/workouts/WorkoutContext";
@@ -26,6 +27,7 @@ export default function TemplateFormRoute() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const { presets, createPreset, updatePreset, deletePreset } = useWorkouts();
   const draft = useTemplateDraft();
+  const selection = useExerciseSelection();
   const insets = useSafeAreaInsets();
 
   const preset = id ? (presets.find((p) => p.id === id) ?? null) : null;
@@ -115,9 +117,7 @@ export default function TemplateFormRoute() {
             <Button
               title="+ Add exercise"
               variant="dashed"
-              onPress={() =>
-                router.push({ pathname: "/exercise-picker", params: { addTo: "template" } })
-              }
+              onPress={() => selection.open("template")}
               style={styles.addExercise}
             />
           }

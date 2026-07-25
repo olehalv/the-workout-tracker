@@ -3,6 +3,7 @@ import { type ReactNode, useEffect, useRef } from "react";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 import { useAuth } from "../../src/auth/AuthContext";
 import { MinimizedWorkoutBar } from "../../src/components/MinimizedWorkoutBar";
+import { ExerciseSelectionProvider } from "../../src/navigation/ExerciseSelectionContext";
 import { modalStackOptions } from "../../src/navigation/headerOptions";
 import { PurchaseProvider } from "../../src/purchases/PurchaseContext";
 import { theme } from "../../src/theme";
@@ -53,44 +54,46 @@ export default function AppLayout() {
     <PurchaseProvider>
       <WorkoutProvider>
         <TemplateDraftProvider>
-          <RestTimer>
-            <View style={styles.fill}>
-              <Stack screenOptions={modalStackOptions}>
-                {/* The tabs carry a Stack per tab, so this one must not draw a bar over them. */}
-                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                <Stack.Screen
-                  name="workout"
-                  options={{ presentation: "fullScreenModal", gestureEnabled: false }}
-                />
-                <Stack.Screen
-                  name="summary"
-                  options={{ presentation: "fullScreenModal", gestureEnabled: false }}
-                />
-                <Stack.Screen name="workout-detail" options={{ presentation: "modal" }} />
-                <Stack.Screen
-                  name="exercise-picker"
-                  options={{ presentation: "modal", headerShown: false }}
-                />
-                <Stack.Screen name="exercise-form" options={{ presentation: "modal" }} />
-                <Stack.Screen name="exercise-progress" options={{ presentation: "modal" }} />
-                <Stack.Screen name="template-picker" options={{ presentation: "modal" }} />
-                <Stack.Screen name="template-form" options={{ presentation: "modal" }} />
-                <Stack.Screen
-                  name="paywall"
-                  options={{
-                    headerShown: false,
-                    presentation: "formSheet",
-                    sheetAllowedDetents: "fitToContents",
-                    sheetGrabberVisible: true,
-                    sheetCornerRadius: theme.radius.lg,
-                    contentStyle: { backgroundColor: theme.colors.surface },
-                  }}
-                />
-              </Stack>
-              <MinimizedWorkoutBar />
-              <ActiveWorkoutRestore />
-            </View>
-          </RestTimer>
+          <ExerciseSelectionProvider>
+            <RestTimer>
+              <View style={styles.fill}>
+                <Stack screenOptions={modalStackOptions}>
+                  {/* The tabs carry a Stack per tab, so this one must not draw a bar over them. */}
+                  <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                  <Stack.Screen
+                    name="workout"
+                    options={{ presentation: "fullScreenModal", gestureEnabled: false }}
+                  />
+                  <Stack.Screen
+                    name="summary"
+                    options={{ presentation: "fullScreenModal", gestureEnabled: false }}
+                  />
+                  <Stack.Screen name="workout-detail" options={{ presentation: "modal" }} />
+                  <Stack.Screen
+                    name="exercise-picker"
+                    options={{ presentation: "modal", headerShown: false }}
+                  />
+                  <Stack.Screen name="exercise-form" options={{ presentation: "modal" }} />
+                  <Stack.Screen name="exercise-progress" options={{ presentation: "modal" }} />
+                  <Stack.Screen name="template-picker" options={{ presentation: "modal" }} />
+                  <Stack.Screen name="template-form" options={{ presentation: "modal" }} />
+                  <Stack.Screen
+                    name="paywall"
+                    options={{
+                      headerShown: false,
+                      presentation: "formSheet",
+                      sheetAllowedDetents: "fitToContents",
+                      sheetGrabberVisible: true,
+                      sheetCornerRadius: theme.radius.lg,
+                      contentStyle: { backgroundColor: theme.colors.surface },
+                    }}
+                  />
+                </Stack>
+                <MinimizedWorkoutBar />
+                <ActiveWorkoutRestore />
+              </View>
+            </RestTimer>
+          </ExerciseSelectionProvider>
         </TemplateDraftProvider>
       </WorkoutProvider>
     </PurchaseProvider>

@@ -33,7 +33,7 @@ export default function WorkoutDetailRoute() {
       <Stack.Screen
         options={{
           title: fmtDate(workout.startedAt),
-          headerRight: () => <HeaderButton label="Done" prominent onPress={() => router.back()} />,
+          headerLeft: () => <HeaderButton label="Back" onPress={() => router.back()} />,
         }}
       />
 

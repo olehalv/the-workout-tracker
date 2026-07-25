@@ -9,7 +9,7 @@ export default function PickerMuscleGroupRoute() {
     group: string;
     addTo?: PickerTarget;
   }>();
-  const { library, pick, meta, dismiss } = useExercisePicker(addTo);
+  const { library, meta, toggle, isSelected, count, commit } = useExercisePicker(addTo);
 
   const exercises = useMemo(() => exercisesInGroup(library, group), [library, group]);
 
@@ -20,15 +20,22 @@ export default function PickerMuscleGroupRoute() {
           title: group,
           headerBackVisible: false,
           headerLeft: () => <HeaderButton label="Back" onPress={() => router.back()} />,
-          headerRight: () => <HeaderButton label="Done" prominent onPress={dismiss} />,
+          headerRight: () => (
+            <HeaderButton
+              label={count > 0 ? `Add (${count})` : "Add"}
+              prominent
+              disabled={count === 0}
+              onPress={commit}
+            />
+          ),
         }}
       />
       <ExerciseList
         exercises={exercises}
-        showAdd
         empty="No exercises in this group yet."
         meta={meta}
-        onSelect={pick}
+        isSelected={(e) => isSelected(e.id)}
+        onSelect={toggle}
       />
     </>
   );

@@ -8,7 +8,7 @@ import { theme } from "../../../src/theme";
 
 export default function ExercisePickerRoute() {
   const { addTo = "workout" } = useLocalSearchParams<{ addTo?: PickerTarget }>();
-  const { library, pick, meta } = useExercisePicker(addTo);
+  const { library, meta, toggle, isSelected, count, commit } = useExercisePicker(addTo);
   const [query, setQuery] = useState("");
 
   const q = query.trim().toLowerCase();
@@ -20,17 +20,25 @@ export default function ExercisePickerRoute() {
         options={{
           title: addTo === "template" ? "Add to template" : "Add exercise",
           headerLeft: () => <HeaderButton label="Back" onPress={() => router.back()} />,
+          headerRight: () => (
+            <HeaderButton
+              label={count > 0 ? `Add (${count})` : "Add"}
+              prominent
+              disabled={count === 0}
+              onPress={commit}
+            />
+          ),
         }}
       />
       <ExerciseBrowser
         library={library}
         query={query}
-        showAdd
         meta={meta}
+        isSelected={(e) => isSelected(e.id)}
         onSelectGroup={(group) =>
           router.push({ pathname: "/exercise-picker/[group]", params: { group, addTo } })
         }
-        onSelectExercise={pick}
+        onSelectExercise={toggle}
         header={
           <>
             <Input
@@ -53,7 +61,7 @@ export default function ExercisePickerRoute() {
                 }
               >
                 <Text style={styles.createText}>Create “{query.trim()}”</Text>
-                <Text style={styles.createHint}>Set muscle group, then create &amp; add</Text>
+                <Text style={styles.createHint}>Set muscle group, then create &amp; select</Text>
               </Pressable>
             ) : null}
           </>

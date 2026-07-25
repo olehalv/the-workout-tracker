@@ -224,16 +224,31 @@ over HTTP).
   inside the modal so a group pushes *within* the sheet rather than presenting a
   second sheet on top; that's why its parent `Stack.Screen` sets
   `headerShown: false`.
-- **There is one exercise picker, not one per caller.** `exercise-picker` takes an
-  `addTo=workout|template` param (same convention as `exercise-form`) and
-  `src/navigation/useExercisePicker.ts` holds everything that differs between the
-  two: where a tap sends the exercise, what the row's meta says, and where Cancel
-  dismisses to. Picking for a **template keeps the picker open** (you usually add
-  several in a row, and the row meta shows "N in template"); picking for the
-  **workout closes it**, since that's a single pick. The template form therefore has
-  no exercise list of its own — it's the draft plus a "+ Add exercise" button that
-  pushes the picker. Add a third caller by passing a new `addTo`, not by copying the
-  list.
+- **There is one exercise picker, not one per caller, and both callers behave
+  identically.** `exercise-picker` takes an `addTo=workout|template` param (same
+  convention as `exercise-form`) and `src/navigation/useExercisePicker.ts` holds
+  everything that differs between the two: where the chosen exercises go, what the
+  row's meta says, and where the picker dismisses to. **The picker is multi-select
+  for both targets:** tapping a row toggles a checkmark, `headerRight` is
+  "Add (N)" (disabled at 0), and only that commits + dismisses. Behaviour must not
+  diverge per caller — it previously stayed open for templates and closed for the
+  workout, which read as a tap not registering.
+  - Selection lives in `src/navigation/ExerciseSelectionContext.tsx`, mounted above
+    the router in `app/(app)/_layout.tsx` (same reason as `TemplateDraftContext`:
+    `exercise-form` stacks *on top of* the picker and can't hand a value back).
+    Its `open(target)` clears the selection *and* navigates, so "cleared before it
+    mounts" stays one invariant rather than a mount effect — call it instead of
+    pushing `/exercise-picker` yourself. It survives drilling into a group, so a
+    selection can span several muscle groups.
+  - `exercise-form`'s create-and-add is therefore **"Create & select"**: it adds the
+    new exercise to the pending selection and pops back into the picker, rather than
+    committing on its own and throwing away whatever was already ticked.
+  - The row meta shows "N in workout"/"N in template" for what's *already* in the
+    target. Ticking the same exercise twice in one pass isn't expressible — reopen
+    the picker to add a second instance of it.
+  The template form therefore has no exercise list of its own — it's the draft plus
+  a "+ Add exercise" button that opens the picker. Add a third caller by passing a
+  new `addTo`, not by copying the list.
 - **Shared UI kit — `src/components/ui/` (reuse it; don't re-copy styles).** The
   dark/minimal design language is componentized here so screens compose instead of
   duplicating `StyleSheet` blocks: `Button` (primary/secondary/danger/dashed, md/sm,

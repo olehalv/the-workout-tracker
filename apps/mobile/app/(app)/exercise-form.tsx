@@ -2,10 +2,9 @@ import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { Alert, StyleSheet, Text, View } from "react-native";
 import { Button, GlassPressable, HeaderButton, Input, SectionLabel } from "../../src/components/ui";
+import { useExerciseSelection } from "../../src/navigation/ExerciseSelectionContext";
 import { theme } from "../../src/theme";
 import { MUSCLE_GROUPS } from "../../src/workouts/defaultExercises";
-import { useTemplateDraft } from "../../src/workouts/TemplateDraftContext";
-import type { LibraryExercise } from "../../src/workouts/types";
 import { useWorkouts } from "../../src/workouts/WorkoutContext";
 
 type Params = {
@@ -16,8 +15,8 @@ type Params = {
 
 export default function ExerciseFormRoute() {
   const { id, name: initialName, addTo } = useLocalSearchParams<Params>();
-  const { library, createExercise, updateExercise, deleteExercise, addExercise } = useWorkouts();
-  const draft = useTemplateDraft();
+  const { library, createExercise, updateExercise, deleteExercise } = useWorkouts();
+  const selection = useExerciseSelection();
 
   const exercise = id ? (library.find((e) => e.id === id) ?? null) : null;
   const isEdit = exercise !== null;
@@ -37,21 +36,11 @@ export default function ExerciseFormRoute() {
     router.back();
   };
 
-  const addCreated = (created: LibraryExercise) => {
-    if (addTo === "workout") {
-      addExercise(created);
-      router.dismissTo("/workout");
-      return;
-    }
-    if (addTo === "template") draft.addExercise(created.id, created.name);
-    router.back();
-  };
-
-  const doCreate = (addAfter: boolean) => {
+  const doCreate = (selectAfter: boolean) => {
     if (!canSave) return;
     const created = createExercise(name, groups);
-    if (addAfter) addCreated(created);
-    else router.back();
+    if (selectAfter) selection.add(created);
+    router.back();
   };
 
   const confirmDelete = () => {
@@ -120,7 +109,7 @@ export default function ExerciseFormRoute() {
       ) : (
         <>
           <Button
-            title={addTo ? "Create & add" : "Create exercise"}
+            title={addTo ? "Create & select" : "Create exercise"}
             disabled={!canSave}
             onPress={() => doCreate(addTo !== undefined)}
           />

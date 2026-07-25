@@ -1,3 +1,4 @@
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { StyleSheet, Text, View } from "react-native";
 import { theme } from "../theme";
 import { GlassPressable } from "./ui";
@@ -6,20 +7,30 @@ export function ExerciseListRow({
   name,
   meta,
   onPress,
-  showAdd = false,
+  selected,
 }: {
   name: string;
   meta: string;
   onPress: () => void;
-  showAdd?: boolean;
+  selected?: boolean;
 }) {
   return (
-    <GlassPressable onPress={onPress} surfaceStyle={styles.row} fallbackStyle={styles.rowSolid}>
+    <GlassPressable
+      onPress={onPress}
+      surfaceStyle={[styles.row, selected && styles.rowSelected]}
+      fallbackStyle={styles.rowSolid}
+    >
       <View style={styles.main}>
         <Text style={styles.name}>{name}</Text>
         <Text style={styles.meta}>{meta}</Text>
       </View>
-      {showAdd ? <Text style={styles.plus}>+</Text> : null}
+      {selected !== undefined ? (
+        <Ionicons
+          name={selected ? "checkmark-circle" : "ellipse-outline"}
+          size={24}
+          color={selected ? theme.colors.accent : theme.colors.border}
+        />
+      ) : null}
     </GlassPressable>
   );
 }
@@ -34,6 +45,9 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: theme.space(4),
     paddingVertical: theme.space(3),
+  },
+  rowSelected: {
+    borderColor: theme.colors.accent,
   },
   rowSolid: {
     backgroundColor: theme.colors.surface,
@@ -50,11 +64,5 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     fontSize: 12,
     marginTop: theme.space(1),
-  },
-  plus: {
-    color: theme.colors.accent,
-    fontSize: 24,
-    fontWeight: "600",
-    paddingHorizontal: theme.space(2),
   },
 });
