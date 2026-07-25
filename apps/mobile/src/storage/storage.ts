@@ -54,23 +54,46 @@ function parseEnvelope<T>(raw: string): Envelope<T> {
 
 const cloudEnabled = Platform.OS === "ios";
 
+// react-native-cloud-storage resolves the ubiquity container on every single
+// call (FileManager.url(forUbiquityContainerIdentifier:), which Apple documents
+// as blocking) and its TurboModule declares no method queue, so those calls
+// serialize onto React Native's shared module queue. On a device signed into
+// iCloud that can stall for a long time — an unbounded await then never
+// resolves and the app boots with an empty library. The simulator never hits it
+// because with no iCloud account isCloudAvailable() is false immediately.
+const CLOUD_TIMEOUT_MS = 8_000;
+const TIMED_OUT = Symbol("cloud-timeout");
+
+let cloudStalled = false;
+
+// A timed-out read leaves the cloud copy unknown, so it latches writes off too
+// rather than let stale local state overwrite a possibly-newer backup.
+async function runCloud<T>(work: () => Promise<T>, fallback: T): Promise<T> {
+  const result = await Promise.race([
+    work().catch(() => fallback),
+    new Promise<typeof TIMED_OUT>((resolve) => {
+      setTimeout(() => resolve(TIMED_OUT), CLOUD_TIMEOUT_MS);
+    }),
+  ]);
+  if (result === TIMED_OUT) {
+    cloudStalled = true;
+    return fallback;
+  }
+  return result;
+}
+
 let availabilityCache: { value: boolean; at: number } | null = null;
 const AVAILABILITY_TTL_MS = 15_000;
 
 async function cloudAvailable(): Promise<boolean> {
-  if (!cloudEnabled) return false;
+  if (!cloudEnabled || cloudStalled) return false;
   const now = Date.now();
   if (availabilityCache && now - availabilityCache.at < AVAILABILITY_TTL_MS) {
     return availabilityCache.value;
   }
-  try {
-    const value = await CloudStorage.isCloudAvailable();
-    availabilityCache = { value, at: now };
-    return value;
-  } catch {
-    availabilityCache = { value: false, at: now };
-    return false;
-  }
+  const value = await runCloud(() => CloudStorage.isCloudAvailable(), false);
+  availabilityCache = { value, at: now };
+  return value;
 }
 
 async function readLocal<T>(key: string): Promise<Envelope<T> | null> {
@@ -90,20 +113,18 @@ async function writeLocal<T>(key: string, env: Envelope<T>): Promise<void> {
 
 async function readCloud<T>(key: string): Promise<Envelope<T> | null> {
   if (!(await cloudAvailable())) return null;
-  try {
+  return runCloud<Envelope<T> | null>(async () => {
     if (!(await CloudStorage.exists(cloudPath(key), CLOUD_SCOPE))) return null;
-    const raw = await CloudStorage.readFile(cloudPath(key), CLOUD_SCOPE);
-    return parseEnvelope<T>(raw);
-  } catch {
-    return null;
-  }
+    return parseEnvelope<T>(await CloudStorage.readFile(cloudPath(key), CLOUD_SCOPE));
+  }, null);
 }
 
 async function writeCloud<T>(key: string, env: Envelope<T>): Promise<void> {
   if (!(await cloudAvailable())) return;
-  try {
-    await CloudStorage.writeFile(cloudPath(key), JSON.stringify(env), CLOUD_SCOPE);
-  } catch {}
+  await runCloud<void>(
+    () => CloudStorage.writeFile(cloudPath(key), JSON.stringify(env), CLOUD_SCOPE),
+    undefined,
+  );
 }
 
 const pendingCloudWrites = new Map<string, ReturnType<typeof setTimeout>>();
@@ -159,10 +180,12 @@ export async function wipeAllData(): Promise<void> {
   await AsyncStorage.multiRemove(keys).catch(() => {});
 
   if (await cloudAvailable()) {
-    await Promise.all(
-      keys
-        .filter((key) => SYNCED_KEYS.has(key))
-        .map((key) => CloudStorage.unlink(cloudPath(key), CLOUD_SCOPE).catch(() => {})),
-    );
+    await runCloud<void>(async () => {
+      await Promise.all(
+        keys
+          .filter((key) => SYNCED_KEYS.has(key))
+          .map((key) => CloudStorage.unlink(cloudPath(key), CLOUD_SCOPE).catch(() => {})),
+      );
+    }, undefined);
   }
 }

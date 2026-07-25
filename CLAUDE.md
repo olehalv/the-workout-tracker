@@ -593,21 +593,33 @@ over HTTP).
   - **Requires a native dev build — iCloud does NOT work in Expo Go** (needs iCloud
     entitlements + a container, which only a native build has). Needs a paid Apple
     Developer account and an iCloud container `iCloud.dev.olehalv.theworkouttracker`
-    on the App ID with the **iCloud (CloudKit + Documents)** capability. `app.json`
-    wires the `react-native-cloud-storage` config plugin; run `expo prebuild` /
-    rebuild the dev client after changing it.
-  - **CloudKit environment footgun:** the plugin's `iCloudContainerEnvironment` is
-    set to `Development` (matches a dev-build / development provisioning profile).
-    CloudKit **Development and Production are separate databases — records do NOT
-    carry over.** This MUST become `Production` (or be driven per EAS build profile)
-    before TestFlight/App Store, or released users get an empty Production container.
+    on the App ID with the **iCloud (CloudKit + Documents)** capability.
+    `app.config.ts` wires the `react-native-cloud-storage` config plugin; run
+    `expo prebuild` / rebuild the dev client after changing it.
+  - **CloudKit environment is per build profile, which is why the plugin lives in
+    `app.config.ts` rather than `app.json`.** Xcode fails the `app-store` export
+    outright on `iCloudContainerEnvironment: "Development"` ("value is not
+    allowed"), while a dev/ad-hoc build must stay on `Development` — and the two
+    CloudKit environments are **separate databases, records do NOT carry over**.
+    `ICLOUD_CONTAINER_ENVIRONMENT=Production` selects it; `eas.json` sets it on the
+    `production` profile only, so everything else defaults to `Development`.
+  - **iCloud calls are bounded (`CLOUD_TIMEOUT_MS`) and latch off on timeout.**
+    `react-native-cloud-storage` resolves the ubiquity container on every call
+    (`FileManager.url(forUbiquityContainerIdentifier:)`, blocking per Apple) and its
+    TurboModule declares no method queue, so the calls serialize onto RN's shared
+    module queue. Unbounded, a slow container on a real device means `loadJSON`
+    never resolves and the app boots with an empty library — invisible on the
+    simulator, where no iCloud account makes `isCloudAvailable()` false instantly. A
+    timeout sets `cloudStalled`, which disables **reads and writes** for the session:
+    once a read is unresolved, writing would overwrite a possibly-newer backup.
   - The abstraction stays swappable to `expo-sqlite` later if progress aggregation
     outgrows in-memory scans.
 - Monorepo note: `metro.config.js` is configured to resolve hoisted deps from the
   repo root (`watchFolders` + `nodeModulesPaths`). Keep it when adding packages.
-- `app.json`: `userInterfaceStyle: "dark"`, `ios.usesAppleSignIn: true`,
-  `expo-apple-authentication` + `react-native-cloud-storage` (iCloud backup) config
-  plugins. Bundle id / Android package:
+- `app.json`: `userInterfaceStyle: "dark"`, `ios.usesAppleSignIn: true`, the
+  `expo-apple-authentication` config plugin. `app.config.ts` extends it with the
+  `react-native-cloud-storage` (iCloud backup) plugin, whose container environment
+  depends on the build profile — see Storage. Bundle id / Android package:
   `dev.olehalv.theworkouttracker` (the `web` app's `APPLE_CLIENT_IDS` must match the
   iOS bundle id, since it's the Apple token audience).
 
@@ -739,10 +751,10 @@ Next steps:
   scans, migrate the store behind `src/storage/storage.ts` to `expo-sqlite`.
 - iCloud backup: wired end-to-end (local-first + `react-native-cloud-storage`
   mirror) but only exercisable in a **dev build**, not Expo Go, and so far only
-  against the CloudKit **Development** environment. Before shipping: flip
-  `iCloudContainerEnvironment` to `Production` in `app.json` (or drive it per EAS
-  profile), ensure the iCloud container + capability exist on the App ID, and
-  verify restore on a second device. Consider a manual "Back up now" action and
+  against the CloudKit **Development** environment. The `production` EAS profile now
+  selects `Production` (see Storage), but that path is **unverified** — confirm the
+  iCloud container + capability exist on the App ID and verify restore on a second
+  device before shipping. Consider a manual "Back up now" action and
   surfacing last-sync time. True concurrent multi-device sync (record-level merge)
   is out of scope — current model is last-write-wins per key.
 - Payments: the Stripe flow is wired end-to-end (paywall → in-app browser →

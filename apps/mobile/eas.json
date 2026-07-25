@@ -15,7 +15,10 @@
     },
     "production": {
       "autoIncrement": true,
-      "environment": "production"
+      "environment": "production",
+      "env": {
+        "ICLOUD_CONTAINER_ENVIRONMENT": "Production"
+      }
     }
   },
   "submit": {

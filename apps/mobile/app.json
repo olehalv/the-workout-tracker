@@ -32,13 +32,6 @@
       "expo-apple-authentication",
       "expo-secure-store",
       "expo-web-browser",
-      [
-        "react-native-cloud-storage",
-        {
-          "iCloudContainerEnvironment": "Development",
-          "iCloudContainerIdentifier": "iCloud.dev.olehalv.theworkouttracker"
-        }
-      ],
       "expo-router"
     ],
     "extra": {
