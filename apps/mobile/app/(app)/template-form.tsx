@@ -1,3 +1,5 @@
+import { Host, Stepper } from "@expo/ui/swift-ui";
+import { labelsHidden } from "@expo/ui/swift-ui/modifiers";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import {
@@ -17,10 +19,15 @@ import ReorderableList, {
 } from "react-native-reorderable-list";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { REORDER_CELL_ANIMATIONS } from "../../src/components/reorder";
-import { Button, common, HeaderButton, Input, SectionLabel } from "../../src/components/ui";
+import { Button, HeaderButton, Input, SectionLabel } from "../../src/components/ui";
 import { useExerciseSelection } from "../../src/navigation/ExerciseSelectionContext";
 import { theme } from "../../src/theme";
-import { type DraftExercise, useTemplateDraft } from "../../src/workouts/TemplateDraftContext";
+import {
+  type DraftExercise,
+  MAX_SETS,
+  MIN_SETS,
+  useTemplateDraft,
+} from "../../src/workouts/TemplateDraftContext";
 import { useWorkouts } from "../../src/workouts/WorkoutContext";
 
 export default function TemplateFormRoute() {
@@ -109,7 +116,7 @@ export default function TemplateFormRoute() {
           renderItem={({ item }: ReorderableListRenderItemInfo<DraftExercise>) => (
             <SelectedRow
               item={item}
-              onChangeSets={(delta) => draft.changeSets(item.uid, delta)}
+              onSetSets={(sets) => draft.setSets(item.uid, sets)}
               onRemove={() => draft.removeExercise(item.uid)}
             />
           )}
@@ -144,11 +151,11 @@ export default function TemplateFormRoute() {
 
 function SelectedRow({
   item,
-  onChangeSets,
+  onSetSets,
   onRemove,
 }: {
   item: DraftExercise;
-  onChangeSets: (delta: number) => void;
+  onSetSets: (sets: number) => void;
   onRemove: () => void;
 }) {
   const drag = useReorderableDrag();
@@ -168,24 +175,19 @@ function SelectedRow({
       <Text style={styles.selName} numberOfLines={1}>
         {item.name}
       </Text>
-      <View style={styles.stepper}>
-        <Pressable
-          style={({ pressed }) => [styles.stepBtn, pressed && common.pressed]}
-          onPress={() => onChangeSets(-1)}
-          hitSlop={4}
-        >
-          <Text style={styles.stepText}>−</Text>
-        </Pressable>
-        <Text style={styles.stepVal}>{item.sets}</Text>
-        <Pressable
-          style={({ pressed }) => [styles.stepBtn, pressed && common.pressed]}
-          onPress={() => onChangeSets(1)}
-          hitSlop={4}
-        >
-          <Text style={styles.stepText}>+</Text>
-        </Pressable>
-      </View>
+      <Text style={styles.stepVal}>{item.sets}</Text>
       <Text style={styles.setsUnit}>sets</Text>
+      <Host style={styles.stepper} colorScheme="dark" seedColor={theme.colors.accent}>
+        <Stepper
+          label={`${item.name} sets`}
+          value={item.sets}
+          step={1}
+          min={MIN_SETS}
+          max={MAX_SETS}
+          onValueChange={onSetSets}
+          modifiers={[labelsHidden()]}
+        />
+      </Host>
       <Pressable onPress={onRemove} hitSlop={6}>
         <Text style={styles.selRemove}>×</Text>
       </Pressable>
@@ -250,24 +252,10 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "600",
   },
+  // UIStepper's intrinsic size; the Host has no content-driven size of its own.
   stepper: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.space(2),
-  },
-  stepBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: theme.radius.sm,
-    borderColor: theme.colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  stepText: {
-    color: theme.colors.text,
-    fontSize: 18,
-    fontWeight: "700",
+    width: 94,
+    height: 32,
   },
   stepVal: {
     color: theme.colors.text,

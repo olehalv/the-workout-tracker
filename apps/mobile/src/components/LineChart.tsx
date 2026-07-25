@@ -1,5 +1,6 @@
+import { Chart, Host } from "@expo/ui/swift-ui";
 import { useState } from "react";
-import { type LayoutChangeEvent, StyleSheet, Text, View } from "react-native";
+import { type LayoutChangeEvent, Platform, StyleSheet, Text, View } from "react-native";
 import { theme } from "../theme";
 
 export interface LinePoint {
@@ -8,12 +9,30 @@ export interface LinePoint {
   value: number;
 }
 
-// Progression line from plain Views (no SVG, so it renders in Expo Go). Each
-// segment is a thin View at two points' midpoint, rotated about its own center.
 export function LineChart({ data, height = 160 }: { data: LinePoint[]; height?: number }) {
-  const [w, setW] = useState(0);
-
   if (data.length === 0) return null;
+
+  if (Platform.OS === "ios") {
+    return (
+      <Host style={{ height }} colorScheme="dark">
+        <Chart
+          type="line"
+          data={data.map((d) => ({ x: d.label, y: d.value }))}
+          showGrid
+          animate
+          lineStyle={{ color: theme.colors.accent, width: 2, pointStyle: "circle", pointSize: 6 }}
+        />
+      </Host>
+    );
+  }
+
+  return <FallbackLineChart data={data} height={height} />;
+}
+
+// Progression line from plain Views. Each segment is a thin View at two points'
+// midpoint, rotated about its own center.
+function FallbackLineChart({ data, height }: { data: LinePoint[]; height: number }) {
+  const [w, setW] = useState(0);
 
   const values = data.map((d) => d.value);
   const max = Math.max(...values);

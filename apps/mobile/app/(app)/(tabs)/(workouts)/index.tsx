@@ -2,7 +2,7 @@ import { router } from "expo-router";
 import { useMemo, useState } from "react";
 import { Alert, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { useMinimizedBarClearance } from "../../../../src/components/MinimizedWorkoutBar";
-import { Button, common, SectionLabel } from "../../../../src/components/ui";
+import { Button, common, EmptyState, SectionLabel } from "../../../../src/components/ui";
 import { dayKey, WeekCalendar } from "../../../../src/components/WeekCalendar";
 import { theme } from "../../../../src/theme";
 import { totalSets, totalVolume, type Workout } from "../../../../src/workouts/types";
@@ -99,7 +99,9 @@ export default function WorkoutsTab() {
           <Text style={styles.dayLabel}>{fmtDayLabel(selectedTs)}</Text>
         </>
       }
-      ListEmptyComponent={<Text style={styles.empty}>No workouts on this day.</Text>}
+      ListEmptyComponent={
+        <EmptyState title="No workouts on this day" systemImage="calendar.badge.exclamationmark" />
+      }
       renderItem={({ item }) => (
         <HistoryRow
           workout={item}
@@ -168,12 +170,6 @@ const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: theme.gutter,
     gap: theme.space(2),
-  },
-  empty: {
-    textAlign: "center",
-    marginTop: theme.space(6),
-    color: theme.colors.textMuted,
-    fontSize: 15,
   },
   row: {
     flexDirection: "row",

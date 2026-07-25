@@ -1,7 +1,7 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router, Stack } from "expo-router";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
-import { Button, common, HeaderButton } from "../../src/components/ui";
+import { Button, common, EmptyState, HeaderButton } from "../../src/components/ui";
 import { theme } from "../../src/theme";
 import { useTemplateDraft } from "../../src/workouts/TemplateDraftContext";
 import type { WorkoutPreset } from "../../src/workouts/types";
@@ -42,9 +42,11 @@ export default function TemplatePickerRoute() {
         keyExtractor={(p) => p.id}
         contentContainerStyle={presets.length === 0 ? styles.emptyWrap : styles.listContent}
         ListEmptyComponent={
-          <Text style={styles.empty}>
-            No templates yet. Create one to start workouts from a saved plan.
-          </Text>
+          <EmptyState
+            title="No templates yet"
+            description="Create one to start workouts from a saved plan."
+            systemImage="list.bullet.rectangle"
+          />
         }
         renderItem={({ item }) => (
           <Pressable
@@ -84,12 +86,6 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: "center",
     alignItems: "center",
-  },
-  empty: {
-    color: theme.colors.textMuted,
-    fontSize: 15,
-    textAlign: "center",
-    lineHeight: 22,
   },
   row: {
     flexDirection: "row",

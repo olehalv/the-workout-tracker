@@ -1,10 +1,12 @@
 import { type ReactElement, useMemo } from "react";
-import { FlatList, StyleSheet, Text } from "react-native";
+import { FlatList, StyleSheet } from "react-native";
+import type { SFSymbol } from "sf-symbols-typescript";
 import { theme } from "../theme";
 import { MUSCLE_GROUPS } from "../workouts/defaultExercises";
 import type { LibraryExercise } from "../workouts/types";
 import { ExerciseListRow } from "./ExerciseListRow";
 import { useMinimizedBarClearance } from "./MinimizedWorkoutBar";
+import { EmptyState } from "./ui";
 
 interface MuscleGroupRow {
   group: string;
@@ -41,6 +43,7 @@ export function ExerciseList({
   onSelect,
   isSelected,
   empty,
+  emptySymbol = "tray",
 }: {
   exercises: LibraryExercise[];
   header?: ReactElement;
@@ -48,6 +51,7 @@ export function ExerciseList({
   onSelect: (exercise: LibraryExercise) => void;
   isSelected?: (exercise: LibraryExercise) => boolean;
   empty?: string;
+  emptySymbol?: SFSymbol;
 }) {
   const clearance = useMinimizedBarClearance();
   return (
@@ -59,7 +63,7 @@ export function ExerciseList({
       keyExtractor={(e) => e.id}
       contentContainerStyle={[styles.content, { paddingBottom: clearance + theme.space(6) }]}
       ListHeaderComponent={header}
-      ListEmptyComponent={empty ? <Text style={styles.empty}>{empty}</Text> : null}
+      ListEmptyComponent={empty ? <EmptyState title={empty} systemImage={emptySymbol} /> : null}
       renderItem={({ item }) => (
         <ExerciseListRow
           name={item.name}
@@ -115,6 +119,7 @@ export function ExerciseBrowser({
         onSelect={onSelectExercise}
         isSelected={isSelected}
         empty="No exercises match."
+        emptySymbol="magnifyingglass"
       />
     );
   }
@@ -128,7 +133,13 @@ export function ExerciseBrowser({
       keyExtractor={(g) => g.group}
       contentContainerStyle={[styles.content, { paddingBottom: clearance + theme.space(6) }]}
       ListHeaderComponent={header}
-      ListEmptyComponent={<Text style={styles.empty}>Your library is empty.</Text>}
+      ListEmptyComponent={
+        <EmptyState
+          title="Your library is empty"
+          description="Create an exercise to start building your library."
+          systemImage="dumbbell"
+        />
+      }
       renderItem={({ item }) => (
         <ExerciseListRow
           name={item.group}
@@ -144,11 +155,5 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: theme.gutter,
     gap: theme.space(2),
-  },
-  empty: {
-    color: theme.colors.textMuted,
-    fontSize: 15,
-    textAlign: "center",
-    marginTop: theme.space(6),
   },
 });

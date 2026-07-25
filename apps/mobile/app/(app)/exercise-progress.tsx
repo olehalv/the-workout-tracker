@@ -3,7 +3,14 @@ import { useMemo } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { LineChart } from "../../src/components/LineChart";
 import { ProGate } from "../../src/components/ProGate";
-import { Card, HeaderButton, SectionLabel, Stat, StatGrid } from "../../src/components/ui";
+import {
+  Card,
+  EmptyState,
+  HeaderButton,
+  SectionLabel,
+  Stat,
+  StatGrid,
+} from "../../src/components/ui";
 import { usePurchases } from "../../src/purchases/PurchaseContext";
 import { theme } from "../../src/theme";
 import type { ProgressPoint } from "../../src/workouts/types";
@@ -62,11 +69,12 @@ export default function ExerciseProgressRoute() {
       />
 
       {points.length === 0 ? (
-        <View style={styles.emptyWrap}>
-          <Text style={styles.empty}>
-            No history yet. Log this exercise in a workout to see progress here.
-          </Text>
-        </View>
+        <EmptyState
+          style={styles.emptyWrap}
+          title="No history yet"
+          description="Log this exercise in a workout to see progress here."
+          systemImage="chart.line.uptrend.xyaxis"
+        />
       ) : (
         <ScrollView
           contentContainerStyle={styles.scrollContent}
@@ -171,14 +179,5 @@ const styles = StyleSheet.create({
   },
   emptyWrap: {
     flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingBottom: theme.space(20),
-  },
-  empty: {
-    color: theme.colors.textMuted,
-    fontSize: 15,
-    textAlign: "center",
-    lineHeight: 22,
   },
 });

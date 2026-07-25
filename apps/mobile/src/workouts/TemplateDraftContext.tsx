@@ -2,7 +2,8 @@ import { router } from "expo-router";
 import { createContext, type ReactNode, useCallback, useContext, useMemo, useState } from "react";
 import { DEFAULT_PRESET_SETS, type PresetExercise, type WorkoutPreset } from "./types";
 
-const MAX_SETS = 12;
+export const MIN_SETS = 1;
+export const MAX_SETS = 12;
 
 export interface DraftExercise extends PresetExercise {
   uid: string;
@@ -15,7 +16,7 @@ interface TemplateDraftValue {
   setExercises: (exercises: DraftExercise[]) => void;
   addExercise: (exerciseId: string, name: string) => void;
   removeExercise: (uid: string) => void;
-  changeSets: (uid: string, delta: number) => void;
+  setSets: (uid: string, sets: number) => void;
   openNew: (exercises?: PresetExercise[]) => void;
   openEditor: (preset: WorkoutPreset) => void;
 }
@@ -45,10 +46,10 @@ export function TemplateDraftProvider({ children }: { children: ReactNode }) {
     setExercises((cur) => cur.filter((e) => e.uid !== uid));
   }, []);
 
-  const changeSets = useCallback((uid: string, delta: number) => {
+  const setSets = useCallback((uid: string, sets: number) => {
     setExercises((cur) =>
       cur.map((e) =>
-        e.uid === uid ? { ...e, sets: Math.min(MAX_SETS, Math.max(1, e.sets + delta)) } : e,
+        e.uid === uid ? { ...e, sets: Math.min(MAX_SETS, Math.max(MIN_SETS, sets)) } : e,
       ),
     );
   }, []);
@@ -73,11 +74,11 @@ export function TemplateDraftProvider({ children }: { children: ReactNode }) {
       setExercises,
       addExercise,
       removeExercise,
-      changeSets,
+      setSets,
       openNew,
       openEditor,
     }),
-    [name, exercises, addExercise, removeExercise, changeSets, openNew, openEditor],
+    [name, exercises, addExercise, removeExercise, setSets, openNew, openEditor],
   );
 
   return <TemplateDraftContext.Provider value={value}>{children}</TemplateDraftContext.Provider>;

@@ -1,6 +1,7 @@
 export { Button } from "./Button";
 export { Card } from "./Card";
 export { common } from "./common";
+export { EmptyState } from "./EmptyState";
 export { GLASS, GlassPressable } from "./GlassPressable";
 export { HeaderButton } from "./HeaderButton";
 export { Input } from "./Input";

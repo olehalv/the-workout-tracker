@@ -1,7 +1,7 @@
 import { router } from "expo-router";
 import { FlatList, StyleSheet, Text, View } from "react-native";
 import { useMinimizedBarClearance } from "../../../../src/components/MinimizedWorkoutBar";
-import { Button, Card, SectionLabel } from "../../../../src/components/ui";
+import { Button, Card, EmptyState, SectionLabel } from "../../../../src/components/ui";
 import { theme } from "../../../../src/theme";
 import { useTemplateDraft } from "../../../../src/workouts/TemplateDraftContext";
 import type { WorkoutPreset } from "../../../../src/workouts/types";
@@ -44,9 +44,11 @@ export default function TemplatesTab() {
         </>
       }
       ListEmptyComponent={
-        <Text style={styles.empty}>
-          No templates yet. Create one, or save a workout as a template.
-        </Text>
+        <EmptyState
+          title="No templates yet"
+          description="Create one, or save a workout as a template."
+          systemImage="list.bullet.rectangle"
+        />
       }
       renderItem={({ item }) => (
         <Card>
@@ -97,13 +99,6 @@ const styles = StyleSheet.create({
   listContent: {
     gap: theme.space(2),
     paddingHorizontal: theme.gutter,
-  },
-  empty: {
-    color: theme.colors.textMuted,
-    fontSize: 15,
-    textAlign: "center",
-    lineHeight: 22,
-    marginTop: theme.space(6),
   },
   cardName: {
     color: theme.colors.text,

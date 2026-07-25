@@ -1,6 +1,16 @@
+import { Host, Picker, Text as UIText } from "@expo/ui/swift-ui";
+import { pickerStyle, tag } from "@expo/ui/swift-ui/modifiers";
 import { GlassView } from "expo-glass-effect";
 import type { ReactNode } from "react";
-import { Pressable, type StyleProp, StyleSheet, Text, View, type ViewStyle } from "react-native";
+import {
+  Platform,
+  Pressable,
+  type StyleProp,
+  StyleSheet,
+  Text,
+  View,
+  type ViewStyle,
+} from "react-native";
 import { theme } from "../../theme";
 import { GLASS } from "./GlassPressable";
 
@@ -8,6 +18,8 @@ export interface SegmentOption<T extends string> {
   key: T;
   label: string;
 }
+
+const SEGMENTED_HEIGHT = 32;
 
 // `buttons`: standalone pills in a row. `pill`: a single grouped control (settings-style).
 export function Segmented<T extends string>({
@@ -29,6 +41,30 @@ export function Segmented<T extends string>({
   style?: StyleProp<ViewStyle>;
 }) {
   const grouped = variant === "pill";
+
+  if (grouped && Platform.OS === "ios") {
+    return (
+      <Host
+        style={[{ height: SEGMENTED_HEIGHT }, style]}
+        matchContents={{ horizontal: !stretch, vertical: false }}
+        colorScheme="dark"
+        seedColor={theme.colors.accent}
+      >
+        <Picker
+          selection={value}
+          onSelectionChange={(key) => onChange(key as T)}
+          modifiers={[pickerStyle("segmented")]}
+        >
+          {options.map((opt) => (
+            <UIText key={opt.key} modifiers={[tag(opt.key)]}>
+              {opt.label}
+            </UIText>
+          ))}
+        </Picker>
+      </Host>
+    );
+  }
+
   return (
     <View
       style={[

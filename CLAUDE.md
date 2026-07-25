@@ -273,10 +273,26 @@ over HTTP).
   `Input` (surface text field), `SectionLabel` (the uppercase muted heading),
   `HeaderButton` (a Cancel/Done bar button for a route's `headerLeft`/`headerRight`
   — screens never draw their own title bar), `Stat`/`StatGrid` (the stat tiles), `Segmented` (settings-style toggles:
-  `variant` buttons|pill, `tone` for pills on a surface card), and `common` (the
+  `variant` buttons|pill, `tone` for pills on a surface card), `EmptyState` (the
+  native empty-list placeholder — see `@expo/ui` below), and `common` (the
   `surface`/`pressed`/`disabled` style fragments). Barrel-exported from
   `src/components/ui/index.ts`. Add new reusable primitives here rather than
   re-deriving them in a screen; extend a component's props before forking a copy.
+- **SwiftUI controls come from `@expo/ui` — it *is* bundled in Expo Go on SDK 57**
+  (verified 2026-07 against the SDK 57 docs; it's also a hard dependency of
+  `expo-router` 57, which uses the `jetpack-compose` half for its Android toolbar).
+  So a real `UISegmentedControl`/`UIStepper`/Swift Charts renders in the simulator
+  with no dev build. Every SwiftUI view must be wrapped in a `Host`; pass
+  `colorScheme="dark"` and `seedColor={theme.colors.accent}` so it inherits the app's
+  look. **A `Host` has no intrinsic size** — give it a style height (or
+  `matchContents`), otherwise it collapses to zero. Currently used by: `Segmented`
+  (`variant="pill"` → `Picker` + `pickerStyle("segmented")`), `EmptyState`
+  (`ContentUnavailableView`, iOS 17+), `LineChart` (`Chart` type `line` — Swift
+  Charts), and the template form's set-count `Stepper`. Each keeps its previous
+  JS/`View` implementation behind a `Platform.OS === "ios"` check, since `swift-ui`
+  is iOS-only. Verify a modifier is registered in the package's
+  `ios/Modifiers/ViewModifierRegistry.swift` before relying on it — the JS layer
+  happily accepts modifiers the native side never applies.
 - **Liquid glass goes through the kit — never hand-roll `GlassView`.** Raw
   `expo-glass-effect` (`GlassView` / `isLiquidGlassAvailable`) is allowed **only**
   inside `src/components/ui/`. Any tappable glass surface (accent CTA, secondary
@@ -286,9 +302,11 @@ over HTTP).
   degrades to a background-less View off iOS 26 (so it keeps a solid fallback), and
   glass corrupts under `opacity < 1` (so `disabled`/busy always takes the solid
   path). Reuse these instead of re-copying the gate + `GlassView` boilerplate. The
-  one legitimate exception is `Segmented`, whose per-segment active/inactive glass
-  sits inside a single shared `Pressable` (not the Pressable-wraps-Glass shape
-  `GlassPressable` encodes); it still reuses the shared `GLASS` flag. **General rule:
+  one legitimate exception is `Segmented`'s `variant="buttons"`, whose per-segment
+  active/inactive glass sits inside a single shared `Pressable` (not the
+  Pressable-wraps-Glass shape `GlassPressable` encodes); it still reuses the shared
+  `GLASS` flag. (`variant="pill"` no longer draws glass at all on iOS — it's a real
+  `UISegmentedControl`, which gets the system treatment for free.) **General rule:
   if a component already does the job, reuse it — don't reimplement it.**
 - Navigation: **`expo-router` file-based routing** with a **native iOS tab bar**
   and a real `UINavigationBar` on every screen.
@@ -516,8 +534,8 @@ over HTTP).
     Edit button when the exercise is still in the library), `workout-detail.tsx`
     (read-only view of a finished workout — totals, the trained-muscle body map +
     strength summary, then every exercise/set/note);
-    `src/components/LineChart.tsx` (pure-`View` progression line — no SVG/native
-    module, so it renders identically in Expo Go). The **body map + strength
+    `src/components/LineChart.tsx` (Swift Charts via `@expo/ui` on iOS, with the
+    original pure-`View` progression line kept as the non-iOS fallback). The **body map + strength
     summary** cards are shared between the post-workout `summary.tsx` and
     `workout-detail.tsx` via `src/components/WorkoutRecap.tsx`
     (`MusclesTrainedCard` + `StrengthSummaryCard`, both scoped to a single workout
