@@ -24,11 +24,7 @@ function slug(name: string): string {
     .replace(/^-|-$/g, "");
 }
 
-// Built-in ids are `builtin-<name-slug>`, so the list is freely orderable. The one
-// rule: never rename a built-in in place — the slug (and thus its id) would change
-// and detach existing history. Add a new entry instead.
 const SEED: Array<[string, string[]]> = [
-  // Legs
   ["Abductor Machine", ["Glutes"]],
   ["Adductor Machine", ["Quads", "Glutes"]],
   ["Back Squat", ["Quads", "Glutes"]],
@@ -83,7 +79,6 @@ const SEED: Array<[string, string[]]> = [
   ["Walking Lunge", ["Quads", "Glutes"]],
   ["Zercher Squat", ["Quads", "Glutes", "Core"]],
 
-  // Chest
   ["Bench Press", ["Chest", "Triceps"]],
   ["Cable Crossover", ["Chest"]],
   ["Cable Fly", ["Chest"]],
@@ -108,7 +103,6 @@ const SEED: Array<[string, string[]]> = [
   ["Svend Press", ["Chest"]],
   ["Weighted Dip", ["Chest", "Triceps"]],
 
-  // Back
   ["Assisted Pull-Up", ["Lats", "Biceps"]],
   ["Back Extension", ["Lower Back", "Glutes"]],
   ["Barbell Row", ["Upper Back", "Lats"]],
@@ -142,7 +136,6 @@ const SEED: Array<[string, string[]]> = [
   ["T-Bar Row", ["Upper Back", "Lats"]],
   ["Wide-Grip Lat Pulldown", ["Lats"]],
 
-  // Shoulders
   ["Arnold Press", ["Shoulders", "Triceps"]],
   ["Behind-the-Neck Press", ["Shoulders", "Triceps"]],
   ["Bradford Press", ["Shoulders"]],
@@ -165,7 +158,6 @@ const SEED: Array<[string, string[]]> = [
   ["Viking Press", ["Shoulders", "Triceps"]],
   ["Y-Raise", ["Shoulders", "Upper Back"]],
 
-  // Arms
   ["Assisted Dip", ["Triceps", "Chest"]],
   ["Barbell Curl", ["Biceps"]],
   ["Bayesian Curl", ["Biceps"]],
@@ -197,7 +189,6 @@ const SEED: Array<[string, string[]]> = [
   ["Triceps Pushdown", ["Triceps"]],
   ["Zottman Curl", ["Biceps", "Forearms"]],
 
-  // Forearms
   ["Behind-the-Back Wrist Curl", ["Forearms"]],
   ["Farmer's Carry", ["Forearms", "Traps", "Core"]],
   ["Plate Pinch", ["Forearms"]],
@@ -206,7 +197,6 @@ const SEED: Array<[string, string[]]> = [
   ["Wrist Curl", ["Forearms"]],
   ["Wrist Roller", ["Forearms"]],
 
-  // Core
   ["Ab Wheel Rollout", ["Core"]],
   ["Cable Crunch", ["Core"]],
   ["Cable Woodchopper", ["Core"]],

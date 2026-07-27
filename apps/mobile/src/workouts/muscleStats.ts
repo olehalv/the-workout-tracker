@@ -14,8 +14,6 @@ export interface MuscleActivity {
   totalSets: number;
 }
 
-// A set counts once for every muscle group its exercise targets — a bench-press
-// set credits both Chest and Triceps. sinceTs null = all time.
 export function muscleActivity(
   workouts: Workout[],
   library: LibraryExercise[],
@@ -52,7 +50,6 @@ export function muscleActivity(
   return { byGroup, maxSets, ranked, totalSets };
 }
 
-// Midnight on the Sunday that begins the current week (local time).
 export function startOfThisWeek(): number {
   const d = new Date();
   d.setHours(0, 0, 0, 0);

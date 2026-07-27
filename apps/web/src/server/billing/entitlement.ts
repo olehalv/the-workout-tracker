@@ -16,19 +16,14 @@ export interface Entitlement {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-// The single source of truth for Pro access, computed server-side so a device
-// with a wound-forward clock can't extend its trial. Precedence: live Stripe
-// subscription → admin comp (/admin plan toggle) → free trial.
 export function resolveEntitlement(user: User, now: Date = new Date()): Entitlement {
   const trialEndsAt = user.trialEndsAt;
   const trialActive = trialEndsAt !== null && trialEndsAt.getTime() > now.getTime();
 
   const subscriptionActive =
     statusGrantsPro(user.stripeStatus) &&
-    // If paidUntil has passed without a renewal webhook, stop granting.
     (user.paidUntil === null || user.paidUntil.getTime() > now.getTime());
 
-  // An admin comp: plan flipped to "pro" in /admin without any Stripe record.
   const adminGranted =
     user.plan === "pro" &&
     !subscriptionActive &&

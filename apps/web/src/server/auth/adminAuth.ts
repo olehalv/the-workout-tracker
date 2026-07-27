@@ -1,17 +1,11 @@
-// Server-only password gate for /admin — a single shared password (ADMIN_PASSWORD),
-// no admin user in Postgres. Never import from a Client Component.
-
 import crypto from "node:crypto";
 import { cookies } from "next/headers";
 import { config } from "../config";
 
 export const ADMIN_COOKIE = "admin_session";
 
-// 30 days, matching the session-cookie lifetime elsewhere.
 const COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
 
-// HMAC of the password keyed by the session secret, so the raw password never
-// sits in a cookie and rotating either value invalidates existing sessions.
 function adminToken(): string {
   return crypto
     .createHmac("sha256", config.jwtSecret)

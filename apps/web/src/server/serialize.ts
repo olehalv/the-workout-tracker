@@ -1,8 +1,6 @@
 import { type Entitlement, resolveEntitlement } from "./billing/entitlement";
 import type { User } from "./db/schema";
 
-// What the mobile app sees. `entitlement` is computed here so Pro/trial status
-// has one implementation, on the side that owns the clock.
 export interface PublicUser {
   id: string;
   email: string | null;
@@ -19,7 +17,6 @@ export function toPublicUser(user: User): PublicUser {
   };
 }
 
-// Full record for the admin dashboard (includes PII + billing).
 export interface AdminUser {
   id: string;
   appleUserId: string;

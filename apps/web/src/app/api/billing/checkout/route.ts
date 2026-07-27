@@ -5,7 +5,6 @@ import { getStripe, priceIdFor } from "@/server/billing/stripe";
 import { config, isBillingConfigured } from "@/server/config";
 import { setStripeCustomerId } from "@/server/db/users";
 
-// Uses pg / jsonwebtoken / stripe, so this must run on the Node runtime.
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -13,9 +12,6 @@ const checkoutSchema = z.object({
   plan: z.enum(["monthly", "annual"]),
 });
 
-// Creates the Checkout session here (authenticated with the session JWT) rather
-// than having the app open a page with the token in the URL — URLs leak via
-// history/referrers and the JWT is a 30-day credential. Grants nothing; the webhook does.
 export async function POST(req: Request): Promise<NextResponse> {
   if (!isBillingConfigured()) {
     return NextResponse.json({ error: "billing_not_configured" }, { status: 503 });
@@ -37,7 +33,6 @@ export async function POST(req: Request): Promise<NextResponse> {
   const stripe = getStripe();
 
   try {
-    // Reuse the customer so a resubscribe lands on the same record.
     let customerId = user.stripeCustomerId;
     if (!customerId) {
       const customer = await stripe.customers.create({
@@ -52,8 +47,6 @@ export async function POST(req: Request): Promise<NextResponse> {
       mode: "subscription",
       customer: customerId,
       line_items: [{ price: priceIdFor(parsed.data.plan), quantity: 1 }],
-      // How the webhook maps the payment to our user: client_reference_id rides on
-      // the session; subscription_data.metadata sticks to the subscription (renewals carry it).
       client_reference_id: user.id,
       subscription_data: { metadata: { userId: user.id } },
       success_url: `${config.publicBaseUrl}/billing/success?session_id={CHECKOUT_SESSION_ID}`,

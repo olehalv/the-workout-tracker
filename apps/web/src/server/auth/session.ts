@@ -6,7 +6,6 @@ export interface SessionClaims {
   email?: string;
 }
 
-/** Issues our own signed session JWT. `sub` is our DB user id. */
 export function issueSessionToken(user: { id: string; email: string | null }): {
   token: string;
   expiresIn: string;

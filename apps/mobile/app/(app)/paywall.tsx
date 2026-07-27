@@ -19,8 +19,6 @@ const PERKS = [
   "Strength ratings for every lift",
 ];
 
-// Two states by trial eligibility: eligible → one-tap no-card trial; used up →
-// the plan picker → Stripe Checkout (payment does not go through the App Store).
 export default function PaywallRoute() {
   const { entitlement, startFreeTrial, subscribe, busy } = usePurchases();
   const [plan, setPlan] = useState<ProPlan>(DEFAULT_PLAN);

@@ -32,7 +32,6 @@ export function canMoveCaret(delta: -1 | 1): boolean {
   return delta === -1 ? target.start > 0 : target.end < target.length;
 }
 
-// Collapses a selection to the edge it moves away from, matching how a caret key behaves.
 export function moveCaret(delta: -1 | 1): void {
   if (!target || !canMoveCaret(delta)) return;
   const collapsed = target.start !== target.end;

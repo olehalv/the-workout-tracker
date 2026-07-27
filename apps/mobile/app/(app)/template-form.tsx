@@ -90,41 +90,36 @@ export default function TemplateFormRoute() {
           }}
         />
         <View style={[styles.container, { paddingBottom: insets.bottom + theme.space(4) }]}>
+          <SectionLabel style={styles.label}>Name</SectionLabel>
+          <Input
+            style={styles.input}
+            placeholder="e.g. Push day"
+            value={draft.name}
+            onChangeText={draft.setName}
+            autoFocus={!isEdit}
+            autoCorrect={false}
+            returnKeyType="done"
+          />
+
+          <SectionLabel style={styles.label}>
+            Exercises{draft.exercises.length > 0 ? ` · ${draft.exercises.length}` : ""}
+          </SectionLabel>
+          <Text style={styles.hint}>
+            {draft.exercises.length === 0
+              ? "Add exercises to build the template."
+              : "Hold the grip to drag and reorder."}
+          </Text>
+
           <ReorderableList
             style={styles.list}
             data={draft.exercises}
-            // react-native-reorderable-list calls keyExtractor with data[i] from its own
-            // captured data (markCells, before onReorder), so i can be past the end and
-            // the item undefined. It tolerates a falsy key by falling back to the index.
             keyExtractor={(e, i) => e?.uid ?? String(i)}
             onReorder={({ from, to }) => draft.reorderExercises(from, to)}
             cellAnimations={REORDER_CELL_ANIMATIONS}
+            shouldUpdateActiveItem
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.listContent}
-            ListHeaderComponent={
-              <View>
-                <SectionLabel style={styles.label}>Name</SectionLabel>
-                <Input
-                  style={styles.input}
-                  placeholder="e.g. Push day"
-                  value={draft.name}
-                  onChangeText={draft.setName}
-                  autoFocus={!isEdit}
-                  autoCorrect={false}
-                  returnKeyType="done"
-                />
-
-                <SectionLabel style={styles.label}>
-                  Exercises{draft.exercises.length > 0 ? ` · ${draft.exercises.length}` : ""}
-                </SectionLabel>
-                {draft.exercises.length === 0 ? (
-                  <Text style={styles.hint}>Add exercises to build the template.</Text>
-                ) : (
-                  <Text style={styles.hint}>Hold the grip to drag and reorder.</Text>
-                )}
-              </View>
-            }
             renderItem={({ item }: ReorderableListRenderItemInfo<DraftExercise>) => (
               <SelectedRow
                 item={item}
@@ -169,7 +164,6 @@ function SelectedRow({
       <Pressable
         onLongPress={drag}
         delayLongPress={150}
-        disabled={isActive}
         hitSlop={8}
         style={styles.dragHandle}
         accessibilityLabel="Drag to reorder exercise"
@@ -256,7 +250,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "600",
   },
-  // UIStepper's intrinsic size; the Host has no content-driven size of its own.
   stepper: {
     width: 94,
     height: 32,

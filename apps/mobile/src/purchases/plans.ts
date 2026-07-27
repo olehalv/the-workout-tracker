@@ -1,7 +1,3 @@
-// There's no store product to read pricing from (payment is Stripe Checkout, not
-// StoreKit), so these labels are ours and must be kept in step with the Stripe
-// prices (STRIPE_PRICE_MONTHLY / STRIPE_PRICE_ANNUAL on the web app).
-
 export type ProPlan = "monthly" | "annual";
 
 export interface PlanOption {
@@ -31,7 +27,6 @@ export const PLAN_OPTIONS: PlanOption[] = [
 
 export const DEFAULT_PLAN: ProPlan = "annual";
 
-// Mirrors TRIAL_DAYS on the web app.
 export const PRO_TRIAL_DAYS = 14;
 
 export const PRO_PRICE_LABEL = "from $0.83/month";

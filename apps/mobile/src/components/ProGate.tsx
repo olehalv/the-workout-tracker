@@ -7,7 +7,6 @@ import { PRO_PRICE_LABEL, PRO_TRIAL_DAYS } from "../purchases/plans";
 import { theme } from "../theme";
 import { GlassPressable } from "./ui";
 
-// Blurs Pro-only children and overlays a subscribe button when `locked`.
 export function ProGate({
   locked,
   children,
@@ -21,7 +20,6 @@ export function ProGate({
 }) {
   const { entitlement, openPaywall } = usePurchases();
 
-  // Same container box when unlocked, so toggling locked doesn't shift layout.
   if (!locked) return <View style={style}>{children}</View>;
 
   return (
@@ -63,7 +61,6 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     borderRadius: theme.radius.md,
   },
-  // Room for the overlay so short gated content isn't cramped/clipped.
   wrapMinHeight: {
     minHeight: 132,
   },

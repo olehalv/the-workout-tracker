@@ -6,7 +6,6 @@ import { theme } from "../theme";
 import { elapsedMs, formatClock, useNow } from "../workouts/time";
 import { useWorkouts } from "../workouts/WorkoutContext";
 
-// Floating "Resume workout" control (live elapsed time) shown while minimized.
 export function ResumeBar() {
   const { active } = useWorkouts();
   const now = useNow(active !== null);

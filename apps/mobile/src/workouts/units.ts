@@ -1,4 +1,3 @@
-// Weights are always stored canonically in kg; convert at display/input boundaries.
 export type WeightUnit = "kg" | "lbs";
 
 const LB_PER_KG = 2.2046226218;

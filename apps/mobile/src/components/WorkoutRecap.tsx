@@ -11,7 +11,6 @@ import { Card, SectionLabel } from "./ui";
 
 const LEGEND = heatRamp(6);
 
-// One workout's body map + top-trained list. Intentionally free — no Pro gate.
 export function MusclesTrainedCard({ workout }: { workout: Workout }) {
   const { library, sex } = useWorkouts();
   const activity = useMemo(() => muscleActivity([workout], library, null), [workout, library]);
@@ -49,7 +48,6 @@ export function MusclesTrainedCard({ workout }: { workout: Workout }) {
   );
 }
 
-// One workout's main-lift 1RM estimates + tiers. Intentionally free — no Pro gate.
 export function StrengthSummaryCard({ workout }: { workout: Workout }) {
   const { bodyweight, sex, unit } = useWorkouts();
   const profile = useMemo(

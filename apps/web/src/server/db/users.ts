@@ -3,8 +3,6 @@ import type { AppleIdentity } from "../auth/appleAuth";
 import { db } from "./client";
 import { type NewUser, type Plan, type User, users } from "./schema";
 
-// Apple only sends the email on the first authorization, so coalesce to avoid
-// wiping a stored email with null on later logins.
 export async function upsertUserFromApple(identity: AppleIdentity): Promise<User> {
   const now = new Date();
   const [user] = await db
@@ -112,10 +110,6 @@ export async function deleteUser(id: string): Promise<User | null> {
   return user ?? null;
 }
 
-// --- Billing --------------------------------------------------------------
-
-// The `is null` guard makes this idempotent/un-farmable: replaying keeps the
-// original end date rather than rolling a fresh window.
 export async function startTrial(id: string, days: number): Promise<User | null> {
   const now = new Date();
   const endsAt = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
@@ -124,7 +118,6 @@ export async function startTrial(id: string, days: number): Promise<User | null>
     .set({ trialStartedAt: now, trialEndsAt: endsAt, updatedAt: now })
     .where(and(eq(users.id, id), isNull(users.trialStartedAt)))
     .returning();
-  // No row updated → the trial was already started; return the existing user.
   return updated ?? (await getUserById(id));
 }
 
@@ -154,7 +147,6 @@ export interface SubscriptionState {
   plan: Plan;
 }
 
-// The only path that flips `plan` to "pro" from a payment (the webhook).
 export async function applySubscriptionState(
   id: string,
   state: SubscriptionState,

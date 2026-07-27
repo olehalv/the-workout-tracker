@@ -30,8 +30,6 @@ const makeUid = () => `draft-${Date.now()}-${uidSeq++}`;
 const withUids = (exercises: PresetExercise[]): DraftExercise[] =>
   exercises.map((e) => ({ ...e, uid: makeUid() }));
 
-// The draft lives above the router so the "create an exercise" route can hand a new
-// exercise back to the template form, which stays mounted underneath it.
 export function TemplateDraftProvider({ children }: { children: ReactNode }) {
   const [name, setName] = useState("");
   const [presetId, setPresetId] = useState<string | null>(null);
@@ -73,9 +71,6 @@ export function TemplateDraftProvider({ children }: { children: ReactNode }) {
     router.push("/template-form");
   }, []);
 
-  // Which preset is being edited rides on the draft, not a route param: the picker
-  // returns with router.dismissTo("/template-form"), which does not carry params, so
-  // an ?id would be lost and the form would save a new template instead.
   const openEditor = useCallback((preset: WorkoutPreset) => {
     setName(preset.name);
     setPresetId(preset.id);

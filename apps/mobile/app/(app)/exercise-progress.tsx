@@ -15,8 +15,6 @@ function fmtShort(ts: number): string {
   return new Date(ts).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
-// `name` is the fallback title for an exercise that was deleted from the library
-// but still appears in logged workouts.
 type Params = { id: string; name?: string };
 
 export default function ExerciseProgressRoute() {
@@ -27,7 +25,6 @@ export default function ExerciseProgressRoute() {
   const libraryExercise = library.find((e) => e.id === id) ?? null;
   const points = useMemo(() => progressFor(id), [id, progressFor]);
 
-  // Show at most the last 12 sessions in the chart so points stay legible.
   const chartData = points.slice(-12).map((p) => ({
     key: p.workoutId,
     label: fmtShort(p.date),
@@ -104,7 +101,6 @@ export default function ExerciseProgressRoute() {
             const [latestPoint, ...older] = history;
             return (
               <>
-                {/* Latest session stays visible; earlier history is Pro-gated. */}
                 <HistoryRow point={latestPoint} unit={unit} />
                 {older.length > 0 ? (
                   <ProGate locked={!isPro}>

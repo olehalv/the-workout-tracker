@@ -7,9 +7,6 @@ import { KeyboardCaretArrows } from "./KeyboardCaretArrows";
 
 export const KEYBOARD_BAR_HEIGHT = 48;
 
-// RN's InputAccessoryView wraps its children in SafeAreaView, which measures 0 inside a
-// just-presented modal view controller — and every screen here with a text field is a
-// modal — so the bar is docked over the keyboard by hand instead.
 export function KeyboardDismissBar() {
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
@@ -27,8 +24,6 @@ export function KeyboardDismissBar() {
   if (keyboardHeight === 0) return null;
 
   return (
-    // Anchored to the screen bottom rather than the keyboard top so the fill runs behind
-    // iOS 26's rounded keyboard corners instead of stopping short of them.
     <View
       style={[
         styles.bar,

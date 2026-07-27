@@ -27,10 +27,6 @@ export interface RestTimer {
 
 const RestTimerContext = createContext<RestTimer | null>(null);
 
-// Countdown driven by an end-timestamp (robust to timer drift); buzzes once on
-// completion. Mounted above the workout screen and tab shell so it survives minimize.
-// The chosen rest length is owned by the caller (persisted in WorkoutContext) and fed
-// in via `duration`/`onDurationChange`.
 export function RestTimerProvider({
   children,
   duration: durationProp,
@@ -79,8 +75,6 @@ export function RestTimerProvider({
     [duration, applyDuration],
   );
 
-  // Holding `remaining` while clearing the end-timestamp is what distinguishes paused
-  // from stopped; skip zeroes it so the bar falls back to showing the chosen duration.
   const pause = useCallback(() => {
     setEndsAt((prev) => {
       if (prev === null) return prev;

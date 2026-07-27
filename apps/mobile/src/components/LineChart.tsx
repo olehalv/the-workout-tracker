@@ -29,8 +29,6 @@ export function LineChart({ data, height = 160 }: { data: LinePoint[]; height?: 
   return <FallbackLineChart data={data} height={height} />;
 }
 
-// Progression line from plain Views. Each segment is a thin View at two points'
-// midpoint, rotated about its own center.
 function FallbackLineChart({ data, height }: { data: LinePoint[]; height: number }) {
   const [w, setW] = useState(0);
 
@@ -40,7 +38,6 @@ function FallbackLineChart({ data, height }: { data: LinePoint[]; height: number
   const range = max - min;
   const n = data.length;
 
-  // Padding leaves room for dots + value labels near the edges.
   const padTop = 22;
   const padBottom = 10;
   const usableH = Math.max(1, height - padTop - padBottom);

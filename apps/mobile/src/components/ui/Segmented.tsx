@@ -21,7 +21,6 @@ export interface SegmentOption<T extends string> {
 
 const SEGMENTED_HEIGHT = 32;
 
-// `buttons`: standalone pills in a row. `pill`: a single grouped control (settings-style).
 export function Segmented<T extends string>({
   options,
   value,
@@ -36,7 +35,6 @@ export function Segmented<T extends string>({
   onChange: (key: T) => void;
   variant?: "buttons" | "pill";
   stretch?: boolean;
-  // Pill background — use "background" when the control sits on a surface card.
   tone?: "surface" | "background";
   style?: StyleProp<ViewStyle>;
 }) {
@@ -182,7 +180,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
   },
-  // Glass segments own their border/background, so drop the solid fill.
   segSurface: {
     overflow: "hidden",
     backgroundColor: "transparent",

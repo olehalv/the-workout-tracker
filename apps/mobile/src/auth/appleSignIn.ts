@@ -11,7 +11,6 @@ export function isAppleAuthAvailable(): Promise<boolean> {
   return AppleAuthentication.isAvailableAsync();
 }
 
-// Returns the identity token (a JWT) to send to the backend.
 export async function requestAppleIdentityToken(): Promise<string> {
   try {
     const credential = await AppleAuthentication.signInAsync({

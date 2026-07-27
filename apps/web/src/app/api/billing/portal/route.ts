@@ -3,12 +3,9 @@ import { userFromRequest } from "@/server/auth/requireUser";
 import { getStripe } from "@/server/billing/stripe";
 import { config, isBillingConfigured } from "@/server/config";
 
-// Uses pg / jsonwebtoken / stripe, so this must run on the Node runtime.
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// Hands back a Stripe billing-portal URL. Cancelling there fires a webhook that
-// clears Pro, so we need no cancel handling of our own.
 export async function POST(req: Request): Promise<NextResponse> {
   if (!isBillingConfigured()) {
     return NextResponse.json({ error: "billing_not_configured" }, { status: 503 });
@@ -19,7 +16,6 @@ export async function POST(req: Request): Promise<NextResponse> {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
   if (!user.stripeCustomerId) {
-    // Never checked out (e.g. still on the no-card trial) — nothing to manage.
     return NextResponse.json({ error: "no_billing_account" }, { status: 409 });
   }
 

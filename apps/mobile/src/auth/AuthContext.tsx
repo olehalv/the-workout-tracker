@@ -30,7 +30,6 @@ interface AuthContextValue {
   signInWithApple: () => Promise<void>;
   signOut: () => Promise<void>;
   deleteAccount: () => Promise<void>;
-  // Re-fetch the user + entitlement; the billing flow polls this after checkout.
   refresh: () => Promise<AuthUser | null>;
 }
 
@@ -62,7 +61,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, [token]);
 
-  // On an expired/rejected token we sign out; on a network error we keep the cached user.
   const refreshUser = useCallback(
     async (activeToken: string): Promise<AuthUser | null> => {
       try {
@@ -75,7 +73,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await SecureStore.setItemAsync(USER_KEY, JSON.stringify(fresh));
         return fresh;
       } catch {
-        // Unreachable — keep the cached user until next refresh.
         return null;
       }
     },
@@ -97,8 +94,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         ]);
         if (active && storedToken && storedUser) {
           setToken(storedToken);
-          // normalizeUser: a user cached before entitlement existed lacks the field
-          // that the Pro gates read synchronously on first render.
           setUser(normalizeUser(JSON.parse(storedUser) as AuthUser));
           refreshUser(storedToken);
         }
@@ -113,7 +108,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [refreshUser]);
 
-  // Refresh on foreground so an /admin plan toggle (or late webhook) shows up without a relaunch.
   useEffect(() => {
     if (!token) return;
     const sub = AppState.addEventListener("change", (state) => {

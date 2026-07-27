@@ -1,8 +1,5 @@
-// On a physical device "localhost" is the device itself — set
-// EXPO_PUBLIC_USER_API_URL to your machine's LAN IP (e.g. http://192.168.1.20:3000).
 const USER_API_URL = process.env.EXPO_PUBLIC_USER_API_URL ?? "http://localhost:3000";
 
-// RN's fetch has no default timeout, so an unreachable URL hangs the spinner forever.
 const REQUEST_TIMEOUT_MS = 15_000;
 
 async function fetchWithTimeout(path: string, init?: RequestInit): Promise<Response> {
@@ -15,8 +12,6 @@ async function fetchWithTimeout(path: string, init?: RequestInit): Promise<Respo
   }
 }
 
-// Computed server-side (mirrors apps/web/src/server/billing/entitlement.ts) so a
-// wound-forward device clock can't extend a trial.
 export interface Entitlement {
   isPro: boolean;
   source: "subscription" | "trial" | "admin" | "none";
@@ -46,8 +41,6 @@ export interface AuthUser {
   entitlement: Entitlement;
 }
 
-// Back-compat: users cached before entitlement existed lack the field; fill it in
-// rather than crashing on user.entitlement.isPro (the next refresh replaces it).
 export function normalizeUser(user: AuthUser): AuthUser {
   return { ...user, entitlement: user.entitlement ?? NO_ENTITLEMENT };
 }
@@ -58,8 +51,6 @@ export interface AuthResponse {
   user: AuthUser;
 }
 
-// Returns the fresh user, null when the token is rejected (caller signs out), or
-// throws when unreachable (offline — caller keeps the cached user).
 export async function fetchMe(token: string): Promise<AuthUser | null> {
   let res: Response;
   try {
@@ -76,9 +67,6 @@ export async function fetchMe(token: string): Promise<AuthUser | null> {
   const body = (await res.json()) as { user: AuthUser };
   return normalizeUser(body.user);
 }
-
-// Billing: these endpoints only hand back a Stripe URL to open in a browser —
-// nothing here grants Pro; the Stripe webhook does that server-side.
 
 export class BillingError extends Error {
   constructor(
@@ -130,7 +118,6 @@ function billingMessage(code: string, serverMessage?: string): string {
   }
 }
 
-// Idempotent server-side: calling again after a reinstall returns the original end date.
 export async function startTrial(token: string): Promise<{ user: AuthUser; alreadyUsed: boolean }> {
   const body = await postAuthed<{ user: AuthUser; alreadyUsed: boolean }>(
     "/api/billing/trial",

@@ -98,7 +98,6 @@ export default function ProfileTab() {
     );
   };
 
-  // iCloud backup needs a native build; the module isn't present in Expo Go.
   const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
   const [cloudAvailable, setCloudAvailable] = useState(false);
   useEffect(() => {
@@ -294,8 +293,6 @@ export default function ProfileTab() {
                   ? "Your subscription is set to end at the close of the current period."
                   : "Progression charts, full history, the muscle map and strength ratings are all yours."}
             </Text>
-            {/* On the free trial there's no Stripe customer yet, so offer the
-              upgrade instead of a billing portal that has nothing in it. */}
             {entitlement.source === "trial" ? (
               <Button
                 title="Subscribe"
@@ -404,7 +401,6 @@ export default function ProfileTab() {
   );
 }
 
-// Remounted via key={unit} on unit change so the shown number matches the unit.
 function BodyweightInput({
   bodyweightKg,
   unit,

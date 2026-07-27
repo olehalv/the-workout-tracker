@@ -6,17 +6,14 @@ import type { MuscleActivity } from "../workouts/muscleStats";
 import type { Sex } from "../workouts/strengthStandards";
 import { type BodyFigure, FEMALE, MALE } from "./bodyMapData";
 
-const BASE = "#2C2F36"; // untrained muscle fill
-const HOT = theme.colors.accent; // most-trained
+const BASE = "#2C2F36";
+const HOT = theme.colors.accent;
 const BODY = "#2A2D34";
-const NEUTRAL = "#3A3D44"; // non-muscle anatomy
-const NEUTRAL_FILL: Record<string, string> = { hair: "#2E313A" }; // per-slug overrides of NEUTRAL
+const NEUTRAL = "#3A3D44";
+const NEUTRAL_FILL: Record<string, string> = { hair: "#2E313A" };
 const OUTLINE = "#6A7079";
 const SEAM = "#454A54";
 
-// Library muscle slug → our muscle group(s), taking the hottest contributor. The
-// library has no separate "lats" path, so its "upper-back" covers Upper Back + Lats;
-// abs+obliques → Core; tibialis → Calves. Unlisted slugs (head, hands, …) stay neutral.
 const SLUG_TO_GROUPS: Record<string, string[]> = {
   chest: ["Chest"],
   deltoids: ["Shoulders"],
@@ -50,12 +47,10 @@ function regionFill(slug: string, activity: MuscleActivity): string {
   if (!groups) return NEUTRAL_FILL[slug] ?? NEUTRAL;
   const sets = groups.reduce((m, g) => Math.max(m, activity.byGroup[g]?.sets ?? 0), 0);
   if (sets === 0 || activity.maxSets === 0) return BASE;
-  // Lift low values so any trained muscle is clearly warmer than untrained.
   const t = 0.28 + 0.72 * Math.sqrt(sets / activity.maxSets);
   return lerpHex(BASE, HOT, Math.min(1, t));
 }
 
-// Pad the viewBox so the outline stroke at the figure's edges isn't clipped.
 function padViewBox(viewBox: string): string {
   const [x, y, w, h] = viewBox.split(/\s+/).map(Number);
   const p = h * 0.02;

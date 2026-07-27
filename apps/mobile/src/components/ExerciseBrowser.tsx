@@ -13,8 +13,6 @@ interface MuscleGroupRow {
   count: number;
 }
 
-// Seed order first, then anything a custom exercise introduced. Empty groups are
-// dropped, so the list can never offer a category with nothing behind it.
 function muscleGroupRows(library: LibraryExercise[]): MuscleGroupRow[] {
   const counts = new Map<string, number>();
   for (const e of library) {
@@ -27,7 +25,6 @@ function muscleGroupRows(library: LibraryExercise[]): MuscleGroupRow[] {
     .map((group) => ({ group, count: counts.get(group) ?? 0 }));
 }
 
-// Below this, a query is still too broad to be worth replacing the group list with.
 export const MIN_SEARCH_LENGTH = 3;
 
 export function exercisesInGroup(library: LibraryExercise[], group: string): LibraryExercise[] {
@@ -76,8 +73,6 @@ export function ExerciseList({
   );
 }
 
-// Browsing starts at the muscle groups; a search query skips the grouping, because
-// drilling through a category to reach something you already named is a step backwards.
 export function ExerciseBrowser({
   library,
   query,
@@ -110,9 +105,6 @@ export function ExerciseBrowser({
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [library, q]);
 
-  // One FlatList across both modes on purpose: swapping element type here remounts
-  // ListHeaderComponent, and the caller's search field lives in it — crossing
-  // MIN_SEARCH_LENGTH would drop focus and autoFocus would reopen the keyboard.
   const rows: (MuscleGroupRow | LibraryExercise)[] = searching ? matches : groups;
 
   return (

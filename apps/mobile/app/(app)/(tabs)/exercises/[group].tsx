@@ -8,7 +8,6 @@ export default function MuscleGroupRoute() {
   const { group } = useLocalSearchParams<{ group: string }>();
   const { library, workouts } = useWorkouts();
 
-  // How many finished sessions reference each exercise, for a quick history hint.
   const sessionCounts = useMemo(() => {
     const counts = new Map<string, number>();
     for (const w of workouts) {

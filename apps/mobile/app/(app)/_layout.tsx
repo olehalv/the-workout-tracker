@@ -58,7 +58,6 @@ export default function AppLayout() {
             <RestTimer>
               <View style={styles.fill}>
                 <Stack screenOptions={modalStackOptions}>
-                  {/* The tabs carry a Stack per tab, so this one must not draw a bar over them. */}
                   <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
                   <Stack.Screen
                     name="workout"

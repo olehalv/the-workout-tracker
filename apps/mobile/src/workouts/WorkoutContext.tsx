@@ -35,7 +35,6 @@ interface StoredActive {
 
 type SetPatch = Partial<Pick<WorkoutSet, "reps" | "weight">>;
 
-// Older stored exercises used a single `category` string; normalize to array.
 type StoredExercise = {
   id: string;
   name: string;
@@ -53,9 +52,6 @@ function normalizeLibrary(items: StoredExercise[]): LibraryExercise[] {
   }));
 }
 
-// Refreshes built-ins' muscle groups from the seed and appends seed entries the
-// stored copy predates (so additions reach existing users), preserving customs
-// and renames. Trade-off: a built-in the user deleted reappears on next launch.
 function reconcileLibrary(items: StoredExercise[]): LibraryExercise[] {
   const seed = defaultLibrary();
   const seedById = new Map(seed.map((s) => [s.id, s]));
@@ -144,7 +140,6 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
       setWorkouts(storedWorkouts);
       setLibrary(storedLibrary.length > 0 ? reconcileLibrary(storedLibrary) : defaultLibrary());
       setPresets(storedPresets);
-      // Restore an in-progress workout only if it wasn't already finished.
       const restoredActive =
         storedActive.workout && storedActive.workout.finishedAt === null
           ? storedActive.workout
@@ -174,7 +169,6 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // Guard on isLoaded so we never clobber stored data with the empty initial state.
   useEffect(() => {
     if (isLoaded) saveJSON(STORAGE_KEYS.workouts, workouts);
   }, [isLoaded, workouts]);
@@ -274,7 +268,6 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
         ...(patch.muscleGroups !== undefined ? { muscleGroups: patch.muscleGroups } : {}),
       };
       setLibrary((list) => list.map((e) => (e.id === id ? { ...e, ...clean } : e)));
-      // Keep the active workout's snapshot name in sync on rename.
       if (clean.name !== undefined) {
         const renamed = clean.name;
         setActive((w) =>
@@ -378,7 +371,6 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
     setMinimized(false);
     setActive((current) => {
       if (!current) return null;
-      // Drop incomplete sets (no reps logged) and exercises left empty.
       const exercises = current.exercises
         .map((e) => ({ ...e, sets: e.sets.filter((s) => s.reps > 0) }))
         .filter((e) => e.sets.length > 0);
@@ -406,7 +398,6 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
     (exerciseId: string): ProgressPoint[] => {
       const points: ProgressPoint[] = [];
       for (const w of workouts) {
-        // Combine every entry of this exercise — it can appear more than once.
         const sets = w.exercises.filter((e) => e.exerciseId === exerciseId).flatMap((e) => e.sets);
         if (sets.length === 0) continue;
         const best = sets.reduce<WorkoutSet | null>(

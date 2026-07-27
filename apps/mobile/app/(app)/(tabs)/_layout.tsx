@@ -1,9 +1,6 @@
 import { Icon, Label } from "expo-router";
 import { NativeTabs } from "expo-router/unstable-native-tabs";
 
-// The real iOS tab bar (UITabBarController) — on iOS 26 it gets the system Liquid Glass
-// treatment for free. Each trigger points at a directory holding that tab's own Stack,
-// which is what gives the tab a real UINavigationBar.
 export default function TabsLayout() {
   return (
     <NativeTabs>

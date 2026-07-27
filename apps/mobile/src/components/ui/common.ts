@@ -1,7 +1,6 @@
 import { StyleSheet } from "react-native";
 import { theme } from "../../theme";
 
-// Visual primitives defined once so the card/press/disabled language stays consistent.
 export const common = StyleSheet.create({
   surface: {
     backgroundColor: theme.colors.surface,

@@ -2,7 +2,6 @@ import { boolean, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
   id: uuid("id").defaultRandom().primaryKey(),
-  // The identity token `sub` — the account key.
   appleUserId: text("apple_user_id").notNull().unique(),
   email: text("email"),
   emailVerified: boolean("email_verified").notNull().default(false),
@@ -11,12 +10,9 @@ export const users = pgTable("users", {
     .default("free"),
   paidUntil: timestamp("paid_until", { withTimezone: true }),
 
-  // Free trial: granted at first paywall open, not signup, so it doesn't burn
-  // down while the user is still on free features. Null trialStartedAt = eligible.
   trialStartedAt: timestamp("trial_started_at", { withTimezone: true }),
   trialEndsAt: timestamp("trial_ends_at", { withTimezone: true }),
 
-  // Stripe subscription. Created lazily at first checkout; the webhook grants Pro.
   stripeCustomerId: text("stripe_customer_id").unique(),
   stripeSubscriptionId: text("stripe_subscription_id"),
   stripeStatus: text("stripe_status"),

@@ -33,13 +33,11 @@ import { templateSeed, totalSets, totalVolume } from "../../src/workouts/types";
 import { fromDisplayWeight, toDisplayWeight, type WeightUnit } from "../../src/workouts/units";
 import { useWorkouts } from "../../src/workouts/WorkoutContext";
 
-// 0 means "not logged".
 function toReps(t: string): number {
   const n = Number.parseInt(t, 10);
   return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
-// 0 = bodyweight; accepts comma decimals.
 function toWeight(t: string): number {
   const n = Number.parseFloat(t.replace(",", "."));
   return Number.isFinite(n) && n >= 0 ? n : 0;
@@ -67,8 +65,15 @@ export default function WorkoutRoute() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
   const rest = useRestTimer();
-  const now = useNow(active !== null);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
+
+  const previousFor = useMemo(() => {
+    const cache = new Map<string, ProgressPoint | null>();
+    return (exerciseId: string) => {
+      if (!cache.has(exerciseId)) cache.set(exerciseId, progressFor(exerciseId).at(-1) ?? null);
+      return cache.get(exerciseId) ?? null;
+    };
+  }, [progressFor]);
 
   useEffect(() => {
     setMinimized(false);
@@ -85,8 +90,6 @@ export default function WorkoutRoute() {
   }, []);
 
   if (!active) return <Redirect href={summary ? "/summary" : "/"} />;
-
-  const elapsed = elapsedMs(active.startedAt, now);
 
   const hasLoggedSet = active.exercises.some((e) => e.sets.some((s) => s.reps > 0));
 
@@ -109,8 +112,6 @@ export default function WorkoutRoute() {
     router.replace("/summary");
   };
 
-  // The exercise may since have been removed from the library; its name still
-  // labels the progress screen.
   const openProgress = (ex: WorkoutExercise) => {
     router.push({
       pathname: "/exercise-progress",
@@ -170,16 +171,10 @@ export default function WorkoutRoute() {
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
-        // KAV measures its own frame with onLayout, whose y is relative to the parent
-        // (0 here) rather than the window, so it under-pads by everything above it —
-        // the header. Without this the rest timer stays behind the keyboard.
         keyboardVerticalOffset={headerHeight}
       >
         <ReorderableList
           data={active.exercises}
-          // react-native-reorderable-list calls keyExtractor with data[i] from its own
-          // captured data (markCells, before onReorder), so i can be past the end and
-          // the item undefined. It tolerates a falsy key by falling back to the index.
           keyExtractor={(ex, i) => ex?.id ?? String(i)}
           onReorder={({ from, to }) => reorderExercises(from, to)}
           cellAnimations={REORDER_CELL_ANIMATIONS}
@@ -190,10 +185,7 @@ export default function WorkoutRoute() {
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={
             <View style={styles.header}>
-              <View style={styles.clock}>
-                <Ionicons name="time-outline" size={14} color={theme.colors.accent} />
-                <Text style={styles.clockText}>{formatClock(elapsed)}</Text>
-              </View>
+              <ElapsedClock startedAt={active.startedAt} />
               <Text style={styles.title}>
                 {totalSets(active)} sets · {Math.round(toDisplayWeight(totalVolume(active), unit))}{" "}
                 {unit}
@@ -205,11 +197,10 @@ export default function WorkoutRoute() {
             <ExerciseCard
               exercise={ex}
               unit={unit}
-              // Excludes the active workout — it isn't finished yet.
-              previous={progressFor(ex.exerciseId).at(-1) ?? null}
+              previous={previousFor(ex.exerciseId)}
               onAddSet={() => {
                 addSet(ex.id);
-                rest.start(); // the previous set is done → start resting
+                rest.start();
               }}
               onUpdateSet={(sid, patch) => updateSet(ex.id, sid, patch)}
               onRemoveSet={(sid) => removeSet(ex.id, sid)}
@@ -254,6 +245,16 @@ export default function WorkoutRoute() {
   );
 }
 
+function ElapsedClock({ startedAt }: { startedAt: number }) {
+  const now = useNow(true);
+  return (
+    <View style={styles.clock}>
+      <Ionicons name="time-outline" size={14} color={theme.colors.accent} />
+      <Text style={styles.clockText}>{formatClock(elapsedMs(startedAt, now))}</Text>
+    </View>
+  );
+}
+
 function ExerciseCard({
   exercise,
   unit,
@@ -291,7 +292,6 @@ function ExerciseCard({
         <Pressable
           onLongPress={drag}
           delayLongPress={150}
-          disabled={isActive}
           hitSlop={8}
           style={styles.dragHandle}
           accessibilityLabel="Drag to reorder exercise"
@@ -369,7 +369,6 @@ function ExerciseCard({
   );
 }
 
-// Avoids float dust: 2.5 + 2.5 = 5, not 5.0000001.
 function trimNum(n: number): string {
   return String(Math.round(n * 100) / 100);
 }
@@ -386,8 +385,6 @@ function StepButton({ label, onPress }: { label: string; onPress: () => void }) 
   );
 }
 
-// Local text state backs the fields (so partial/decimal entry works) while parsed
-// numbers flow to the store for live totals.
 function SetRow({
   index,
   set,
@@ -408,7 +405,6 @@ function SetRow({
     set.weight > 0 ? String(toDisplayWeight(set.weight, unit)) : "",
   );
 
-  // Empty fields preview last session's top set.
   const repsPlaceholder = previous ? String(previous.topReps) : "0";
   const weightPlaceholder = previous ? String(toDisplayWeight(previous.topWeight, unit)) : "0";
 

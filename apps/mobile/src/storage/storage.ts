@@ -2,16 +2,6 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Platform } from "react-native";
 import { CloudStorage, CloudStorageScope } from "react-native-cloud-storage";
 
-/**
- * Local-first JSON storage with an iCloud backup mirror (iOS only).
- *
- * AsyncStorage is the fast, offline source of truth; synced keys are also
- * mirrored to the user's own iCloud so a new phone restores instead of starting
- * empty. Reconciliation is last-write-wins per key by the envelope timestamp —
- * not record-level merge, so two devices editing while both offline lose the
- * earlier writer's whole key (accepted for single-user use).
- */
-
 export const STORAGE_KEYS = {
   workouts: "mwt.workouts.v1",
   library: "mwt.library.v1",
@@ -20,7 +10,6 @@ export const STORAGE_KEYS = {
   active: "mwt.active.v1",
 } as const;
 
-// `active` is excluded: it's transient in-progress state and churns every set edit.
 const SYNCED_KEYS = new Set<string>([
   STORAGE_KEYS.workouts,
   STORAGE_KEYS.library,
@@ -46,7 +35,6 @@ function isEnvelope<T>(value: unknown): value is Envelope<T> {
   );
 }
 
-// Legacy pre-envelope values are treated as oldest, so existing installs seed iCloud.
 function parseEnvelope<T>(raw: string): Envelope<T> {
   const parsed = JSON.parse(raw);
   return isEnvelope<T>(parsed) ? parsed : wrap(parsed as T, 0);
@@ -54,20 +42,11 @@ function parseEnvelope<T>(raw: string): Envelope<T> {
 
 const cloudEnabled = Platform.OS === "ios";
 
-// react-native-cloud-storage resolves the ubiquity container on every single
-// call (FileManager.url(forUbiquityContainerIdentifier:), which Apple documents
-// as blocking) and its TurboModule declares no method queue, so those calls
-// serialize onto React Native's shared module queue. On a device signed into
-// iCloud that can stall for a long time — an unbounded await then never
-// resolves and the app boots with an empty library. The simulator never hits it
-// because with no iCloud account isCloudAvailable() is false immediately.
 const CLOUD_TIMEOUT_MS = 8_000;
 const TIMED_OUT = Symbol("cloud-timeout");
 
 let cloudStalled = false;
 
-// A timed-out read leaves the cloud copy unknown, so it latches writes off too
-// rather than let stale local state overwrite a possibly-newer backup.
 async function runCloud<T>(work: () => Promise<T>, fallback: T): Promise<T> {
   const result = await Promise.race([
     work().catch(() => fallback),
@@ -141,7 +120,6 @@ function writeCloudDebounced<T>(key: string, env: Envelope<T>): void {
   );
 }
 
-// Returns the newer of local/cloud by timestamp and seeds whichever side is stale.
 export async function loadJSON<T>(key: string, fallback: T): Promise<T> {
   const synced = SYNCED_KEYS.has(key);
   const [local, cloud] = await Promise.all([

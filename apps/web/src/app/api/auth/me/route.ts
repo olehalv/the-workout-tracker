@@ -6,7 +6,6 @@ import { isBillingConfigured } from "@/server/config";
 import { deleteUser, getUserById } from "@/server/db/users";
 import { toPublicUser } from "@/server/serialize";
 
-// Uses pg / jsonwebtoken (Node built-ins), so this must run on the Node runtime.
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 

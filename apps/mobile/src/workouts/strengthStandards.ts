@@ -1,9 +1,5 @@
 import type { Workout } from "./types";
 
-// Estimate a 1RM from the best logged set (Epley), divide by bodyweight, then
-// classify that ratio against approximate general strength standards. Ballpark
-// self-assessment figures, not a competition benchmark.
-
 export type Sex = "male" | "female";
 
 export const STRENGTH_TIERS = ["Beginner", "Novice", "Intermediate", "Advanced", "Elite"] as const;
@@ -12,14 +8,10 @@ export type StrengthTier = (typeof STRENGTH_TIERS)[number];
 interface RatedLift {
   key: string;
   label: string;
-  // Snapshot names (lowercased) of workout exercises that count as this lift.
   names: string[];
-  // Minimum 1RM-to-bodyweight ratio per tier, indexed by STRENGTH_TIERS.
   standards: Record<Sex, [number, number, number, number, number]>;
 }
 
-// Ratios are estimated 1RM ÷ bodyweight — rounded, widely-cited general standards
-// (comparable to strengthlevel.com's mid brackets), kept dependency-free/on-device.
 export const RATED_LIFTS: RatedLift[] = [
   {
     key: "squat",
@@ -59,7 +51,6 @@ export const RATED_LIFTS: RatedLift[] = [
   },
 ];
 
-// Epley one-rep-max estimate from a weight × reps set.
 export function estimate1RM(weight: number, reps: number): number {
   if (weight <= 0 || reps <= 0) return 0;
   return reps === 1 ? weight : weight * (1 + reps / 30);
@@ -99,7 +90,6 @@ function tierIndex(ratio: number, thresholds: readonly number[]): number {
   return idx;
 }
 
-// Tier midpoints on the 0–100 score scale (one per STRENGTH_TIERS entry).
 const TIER_POINTS = [8, 31, 54, 77, 100];
 
 export function tierForScore(score: number): StrengthTier {
@@ -110,7 +100,6 @@ export function tierForScore(score: number): StrengthTier {
   return STRENGTH_TIERS[idx];
 }
 
-// Map a ratio to 0–100 by interpolating between tier thresholds.
 function scoreFor(ratio: number, thresholds: readonly number[]): number {
   const pts = TIER_POINTS;
   const first = thresholds[0];
@@ -165,8 +154,6 @@ export interface StrengthProfile {
   ratedCount: number;
 }
 
-// Without a bodyweight the lifts return unrated shells so the UI can still list
-// them and prompt for the missing info.
 export function strengthProfile(
   workouts: Workout[],
   bodyweight: number | null,

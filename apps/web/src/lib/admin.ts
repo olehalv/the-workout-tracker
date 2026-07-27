@@ -1,6 +1,3 @@
-// Server-only data access for /admin (talks to Postgres directly via src/server).
-// Only import from Server Components / server actions.
-
 import {
   deleteUser as dbDeleteUser,
   getStats,

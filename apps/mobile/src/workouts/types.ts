@@ -1,11 +1,9 @@
-// A single logged set: reps at a weight (kg).
 export interface WorkoutSet {
   id: string;
   reps: number;
   weight: number;
 }
 
-// An exercise in the library (the catalog you pick from). Built-in or user-custom.
 export interface LibraryExercise {
   id: string;
   name: string;
@@ -17,7 +15,6 @@ export function muscleLabel(ex: { muscleGroups: string[] }): string {
   return ex.muscleGroups.length > 0 ? ex.muscleGroups.join(", ") : "Uncategorized";
 }
 
-// Snapshots the library exercise's name so history survives renames/deletes.
 export interface WorkoutExercise {
   id: string;
   exerciseId: string;
@@ -47,7 +44,6 @@ export interface WorkoutPreset {
   exercises: PresetExercise[];
 }
 
-// Seed a template from a workout: distinct exercises (by id), logged set count as target.
 export function templateSeed(workout: Workout): PresetExercise[] {
   const seed: PresetExercise[] = [];
   const seen = new Set<string>();
@@ -63,7 +59,6 @@ export function totalSets(w: Workout): number {
   return w.exercises.reduce((n, e) => n + e.sets.length, 0);
 }
 
-// Σ reps × weight across all sets (a rough progressive-overload proxy).
 export function totalVolume(w: Workout): number {
   return w.exercises.reduce(
     (v, e) => v + e.sets.reduce((s, set) => s + set.reps * set.weight, 0),

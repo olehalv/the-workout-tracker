@@ -34,7 +34,6 @@ export interface AppleIdentity {
   emailVerified?: boolean;
 }
 
-// Verifies the identity token against Apple's public keys + issuer/audience.
 export function verifyAppleIdentityToken(identityToken: string): Promise<AppleIdentity> {
   const verifyOptions: VerifyOptions = {
     issuer: APPLE_ISSUER,

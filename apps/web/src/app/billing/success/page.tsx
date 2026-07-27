@@ -4,12 +4,9 @@ import { config } from "@/server/config";
 export const metadata: Metadata = {
   title: "You're Pro — The Workout Tracker",
   description: "Your subscription is active.",
-  // Return pages are per-user dead ends; keep them out of search results.
   robots: { index: false, follow: false },
 };
 
-// Cosmetic post-checkout page — the webhook grants entitlement, not this URL.
-// Its real job is the deep link back into the app.
 export default function BillingSuccessPage() {
   const returnUrl = `${config.appScheme}://billing/return`;
 

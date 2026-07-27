@@ -3,8 +3,6 @@ import type { ReactNode } from "react";
 import { Pressable, type StyleProp, StyleSheet, type ViewStyle } from "react-native";
 import { common } from "./common";
 
-// GlassView degrades to a background-less View off iOS 26, so gate on this and keep
-// a solid fallback. Opacity < 1 corrupts glass, so disabled always uses the fallback.
 export const GLASS = isLiquidGlassAvailable();
 
 export function GlassPressable({

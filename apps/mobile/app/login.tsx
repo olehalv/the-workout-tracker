@@ -27,7 +27,6 @@ export default function LoginRoute() {
       .catch((err) => {
         if (!mounted) return;
         setAvailable(false);
-        // A throw here usually means the native module isn't loaded, not genuine unavailability.
         setUnavailableReason(err instanceof Error ? err.message : String(err));
       });
     return () => {

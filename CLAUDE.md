@@ -13,11 +13,18 @@ PRIORITIZE ME:
   prop is missing silently does nothing, so check the installed native source before
   relying on it. (The long-standing example, native-stack's `unstable_headerLeftItems`,
   is no longer blocked as of SDK 57 — see the Headers section.)
-- **Comments:** default to **zero** comments. Add one *only* to document a
-  non-obvious **external** gotcha — a library bug, an OS/runtime/Expo Go footgun, an
-  API that behaves surprisingly. **Never** explain your own code, narrate *what* it
-  does, or justify *why* a function/bridge/abstraction exists — if that needs
-  explaining, fix the naming or structure instead. When unsure, write no comment.
+- **Never write comments. None.** The codebase contains zero comments and stays that
+  way. Do not explain your own code, narrate what it does, justify why an
+  abstraction exists, label a section, restate a type, or leave a TODO. If code
+  needs explaining, fix the naming or the structure — that is the only permitted
+  response. This is absolute: not "prefer few comments", not "only when
+  non-obvious", not "only for external gotchas". Write none. Anything worth
+  recording about a library bug, an OS/Expo Go footgun or a surprising API belongs
+  in **this file**, not in the source. When you touch a file that somehow has a
+  comment, delete it. The only exemptions are machine-read pragmas that change
+  build behaviour (`biome-ignore`, `@ts-expect-error`, `--> statement-breakpoint` in
+  Drizzle SQL) and the vendored MIT licence header in
+  `apps/mobile/src/components/bodyMapData.ts`.
 
 A workout tracking app for weight / strength lifters, focused on **progressive
 overload**. Log workouts, build presets, run a rest timer, manage exercises, and
@@ -205,7 +212,17 @@ over HTTP).
   when the key comes back falsy, but `item.id` on `undefined` throws before that —
   surfacing as "Cannot read property 'uid'/'id' of undefined" pointing at your
   `keyExtractor`. Always write `(item, i) => item?.id ?? String(i)`; a guarded
-  `onReorder` does **not** prevent it, since the throw happens upstream of the callback. **Reanimated hard-crashes on any
+  `onReorder` does **not** prevent it, since the throw happens upstream of the callback.
+  **Nothing that can change height may sit in a reorderable list's `ListHeaderComponent`.**
+  Cell offsets are cached per index from each cell's `onLayout`, measured relative to the
+  content container — so they include the header — and on release the dragged cell is
+  animated to an *absolute* offset computed from that cache. A header that resizes leaves
+  every cached offset stale, and the released row lands at an arbitrary position, typically
+  on top of the header. This is why `template-form.tsx` renders its name field and section
+  labels as siblings *above* the list rather than as its header; don't fold them back in.
+  (The active workout's stats block stays a `ListHeaderComponent` on purpose — it must
+  scroll away — and gets away with it because its height only changes between drags, when
+  every cell re-fires `onLayout` and refreshes the cache.) **Reanimated hard-crashes on any
   JS↔native version mismatch**, and Expo Go ships the exact native versions its SDK
   pins — so `react-native-reanimated` (`4.5.0`) and `react-native-worklets`
   (`0.10.0`) are pinned without a range. `expo install` / `npm update` float them to
@@ -835,11 +852,8 @@ psql -d the_workout_tracker -c "update users set plan='free', paid_until=null, \
   `src/server/db/schema.ts`, run `npm run db:generate`, commit the SQL in
   `apps/web/drizzle/`, then `db:migrate`.
 - **UI:** dark, minimal, modern. Keep the marketing site tiny.
-- **Comments:** default to **zero** comments. Add one *only* to document a
-  non-obvious **external** gotcha — a library bug, an OS/runtime/Expo Go footgun, an
-  API that behaves surprisingly. **Never** explain your own code, narrate *what* it
-  does, or justify *why* a function/bridge/abstraction exists — if that needs
-  explaining, fix the naming or structure instead. When unsure, write no comment.
+- **Comments: never write any.** See the rule at the top of this file — it is
+  absolute, and the source tree currently holds zero comments.
 - **Expo / React Native facts change fast — verify, don't recall.** Expo SDKs and
   Expo Go change behavior release to release (which modules are bundled in Expo
   Go, config-plugin requirements, `app.json` keys, prebuild flags, API

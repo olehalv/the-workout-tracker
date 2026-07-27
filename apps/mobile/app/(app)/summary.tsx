@@ -23,7 +23,6 @@ interface PersonalRecord {
   reps: number;
 }
 
-// Exercises whose heaviest set beat their best in every prior workout.
 function newPRs(finished: Workout, workouts: Workout[]): PersonalRecord[] {
   const prevBest = new Map<string, number>();
   for (const w of workouts) {
@@ -49,7 +48,6 @@ function newPRs(finished: Workout, workouts: Workout[]): PersonalRecord[] {
   return prs;
 }
 
-// Post-workout recap shown right after finishing. Intentionally free — no Pro gate.
 export default function SummaryRoute() {
   const { summary, dismissSummary, workouts, unit } = useWorkouts();
   const draft = useTemplateDraft();

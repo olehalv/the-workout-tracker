@@ -11,7 +11,6 @@ function fmt(seconds: number): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-// Floating rest countdown shown on the tab screens while a workout is minimized.
 export function RestPill() {
   const { active } = useWorkouts();
   const { running, remaining, skip } = useRestTimer();

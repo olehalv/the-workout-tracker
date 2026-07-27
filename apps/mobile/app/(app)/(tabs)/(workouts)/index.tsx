@@ -53,7 +53,6 @@ export default function WorkoutsTab() {
 
   const selectedKey = dayKey(selectedTs);
 
-  // Days that have at least one logged workout (for calendar dots).
   const marked = useMemo(() => {
     const s = new Set<string>();
     for (const w of workouts) s.add(dayKey(workoutTs(w)));

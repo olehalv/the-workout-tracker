@@ -12,9 +12,8 @@ import { theme } from "../theme";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-const MAX_WEEKS = 52; // ~1 year of paging
+const MAX_WEEKS = 52;
 
-// Local calendar-day key for grouping timestamps by date.
 export function dayKey(ts: number): string {
   const d = new Date(ts);
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
@@ -37,8 +36,6 @@ function weekDays(currentWeekStart: Date, weeksBack: number): Date[] {
   });
 }
 
-// Paged week strip (one week per page, current first, older to the right). Weeks
-// load lazily as you page back, up to MAX_WEEKS, so we never build a year at once.
 export function WeekCalendar({
   selectedKey,
   marked,
@@ -52,10 +49,8 @@ export function WeekCalendar({
   const [count, setCount] = useState(2);
 
   const currentWeekStart = useMemo(() => startOfWeek(new Date()), []);
-  // data[i] = weeks back for page i.
   const data = useMemo(() => Array.from({ length: count }, (_, i) => i), [count]);
 
-  // Keep one page ahead loaded as the user pages back (capped at MAX_WEEKS).
   const onScrollEnd = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
       if (width <= 0) return;
