@@ -1,7 +1,7 @@
 import { Host, Stepper } from "@expo/ui/swift-ui";
 import { labelsHidden } from "@expo/ui/swift-ui/modifiers";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { router, Stack, useLocalSearchParams } from "expo-router";
+import { router, Stack } from "expo-router";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -13,14 +13,14 @@ import {
 } from "react-native";
 import ReorderableList, {
   type ReorderableListRenderItemInfo,
-  reorderItems,
   useIsActive,
   useReorderableDrag,
 } from "react-native-reorderable-list";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { REORDER_CELL_ANIMATIONS } from "../../src/components/reorder";
-import { Button, HeaderButton, Input, SectionLabel } from "../../src/components/ui";
+import { Button, Input, KeyboardDismissBar, SectionLabel } from "../../src/components/ui";
 import { useExerciseSelection } from "../../src/navigation/ExerciseSelectionContext";
+import { backHeaderItems } from "../../src/navigation/headerOptions";
 import { theme } from "../../src/theme";
 import {
   type DraftExercise,
@@ -31,13 +31,12 @@ import {
 import { useWorkouts } from "../../src/workouts/WorkoutContext";
 
 export default function TemplateFormRoute() {
-  const { id } = useLocalSearchParams<{ id?: string }>();
   const { presets, createPreset, updatePreset, deletePreset } = useWorkouts();
   const draft = useTemplateDraft();
   const selection = useExerciseSelection();
   const insets = useSafeAreaInsets();
 
-  const preset = id ? (presets.find((p) => p.id === id) ?? null) : null;
+  const preset = draft.presetId ? (presets.find((p) => p.id === draft.presetId) ?? null) : null;
   const isEdit = preset !== null;
 
   const canSave = draft.name.trim().length > 0 && draft.exercises.length > 0;
@@ -70,82 +69,87 @@ export default function TemplateFormRoute() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.flex}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
-      <Stack.Screen
-        options={{
-          title: isEdit ? "Edit template" : "New template",
-          headerLeft: () => <HeaderButton label="Back" onPress={() => router.back()} />,
-        }}
-      />
-      <View style={[styles.container, { paddingBottom: insets.bottom + theme.space(4) }]}>
-        <ReorderableList
-          style={styles.list}
-          data={draft.exercises}
-          keyExtractor={(e) => e.uid}
-          onReorder={({ from, to }) => draft.setExercises(reorderItems(draft.exercises, from, to))}
-          cellAnimations={REORDER_CELL_ANIMATIONS}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.listContent}
-          ListHeaderComponent={
-            <View>
-              <SectionLabel style={styles.label}>Name</SectionLabel>
-              <Input
-                style={styles.input}
-                placeholder="e.g. Push day"
-                value={draft.name}
-                onChangeText={draft.setName}
-                autoFocus={!isEdit}
-                autoCorrect={false}
-                returnKeyType="done"
+    <>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <Stack.Screen
+          options={{
+            title: isEdit ? "Edit template" : "New template",
+            unstable_headerLeftItems: backHeaderItems,
+            unstable_headerRightItems: () => [
+              {
+                type: "button",
+                label: isEdit ? "Save" : "Create",
+                variant: "done",
+                disabled: !canSave,
+                onPress: save,
+              },
+            ],
+          }}
+        />
+        <View style={[styles.container, { paddingBottom: insets.bottom + theme.space(4) }]}>
+          <ReorderableList
+            style={styles.list}
+            data={draft.exercises}
+            // react-native-reorderable-list calls keyExtractor with data[i] from its own
+            // captured data (markCells, before onReorder), so i can be past the end and
+            // the item undefined. It tolerates a falsy key by falling back to the index.
+            keyExtractor={(e, i) => e?.uid ?? String(i)}
+            onReorder={({ from, to }) => draft.reorderExercises(from, to)}
+            cellAnimations={REORDER_CELL_ANIMATIONS}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.listContent}
+            ListHeaderComponent={
+              <View>
+                <SectionLabel style={styles.label}>Name</SectionLabel>
+                <Input
+                  style={styles.input}
+                  placeholder="e.g. Push day"
+                  value={draft.name}
+                  onChangeText={draft.setName}
+                  autoFocus={!isEdit}
+                  autoCorrect={false}
+                  returnKeyType="done"
+                />
+
+                <SectionLabel style={styles.label}>
+                  Exercises{draft.exercises.length > 0 ? ` · ${draft.exercises.length}` : ""}
+                </SectionLabel>
+                {draft.exercises.length === 0 ? (
+                  <Text style={styles.hint}>Add exercises to build the template.</Text>
+                ) : (
+                  <Text style={styles.hint}>Hold the grip to drag and reorder.</Text>
+                )}
+              </View>
+            }
+            renderItem={({ item }: ReorderableListRenderItemInfo<DraftExercise>) => (
+              <SelectedRow
+                item={item}
+                onSetSets={(sets) => draft.setSets(item.uid, sets)}
+                onRemove={() => draft.removeExercise(item.uid)}
               />
-
-              <SectionLabel style={styles.label}>
-                Exercises{draft.exercises.length > 0 ? ` · ${draft.exercises.length}` : ""}
-              </SectionLabel>
-              {draft.exercises.length === 0 ? (
-                <Text style={styles.hint}>Add exercises to build the template.</Text>
-              ) : (
-                <Text style={styles.hint}>Hold the grip to drag and reorder.</Text>
-              )}
-            </View>
-          }
-          renderItem={({ item }: ReorderableListRenderItemInfo<DraftExercise>) => (
-            <SelectedRow
-              item={item}
-              onSetSets={(sets) => draft.setSets(item.uid, sets)}
-              onRemove={() => draft.removeExercise(item.uid)}
-            />
-          )}
-          ListFooterComponent={
-            <Button
-              title="+ Add exercise"
-              variant="dashed"
-              onPress={() => selection.open("template")}
-              style={styles.addExercise}
-            />
-          }
-        />
-
-        <Button
-          title={isEdit ? "Save template" : "Create template"}
-          disabled={!canSave}
-          onPress={save}
-          style={styles.saveBtn}
-        />
-        {isEdit ? (
-          <Button
-            title="Delete template"
-            variant="danger"
-            onPress={confirmDelete}
-            style={styles.gapTop}
+            )}
+            ListFooterComponent={
+              <>
+                <Button
+                  title="+ Add exercise"
+                  variant="dashed"
+                  onPress={() => selection.open("template")}
+                  style={styles.addExercise}
+                />
+                {isEdit ? (
+                  <Button title="Delete template" variant="danger" onPress={confirmDelete} />
+                ) : null}
+              </>
+            }
           />
-        ) : null}
-      </View>
-    </KeyboardAvoidingView>
+        </View>
+      </KeyboardAvoidingView>
+      <KeyboardDismissBar />
+    </>
   );
 }
 
@@ -277,11 +281,6 @@ const styles = StyleSheet.create({
   },
   addExercise: {
     marginTop: theme.space(1),
-  },
-  saveBtn: {
-    marginTop: theme.space(2),
-  },
-  gapTop: {
-    marginTop: theme.space(2),
+    marginBottom: theme.space(3),
   },
 });

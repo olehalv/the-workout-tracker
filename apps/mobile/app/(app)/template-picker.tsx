@@ -1,7 +1,8 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router, Stack } from "expo-router";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
-import { Button, common, EmptyState, HeaderButton } from "../../src/components/ui";
+import { Button, common, EmptyState } from "../../src/components/ui";
+import { backHeaderItems } from "../../src/navigation/headerOptions";
 import { theme } from "../../src/theme";
 import { useTemplateDraft } from "../../src/workouts/TemplateDraftContext";
 import type { WorkoutPreset } from "../../src/workouts/types";
@@ -25,7 +26,7 @@ export default function TemplatePickerRoute() {
       <Stack.Screen
         options={{
           title: "Start from template",
-          headerLeft: () => <HeaderButton label="Back" onPress={() => router.back()} />,
+          unstable_headerLeftItems: backHeaderItems,
         }}
       />
 

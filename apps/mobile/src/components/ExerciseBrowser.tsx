@@ -110,43 +110,47 @@ export function ExerciseBrowser({
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [library, q]);
 
-  if (searching) {
-    return (
-      <ExerciseList
-        exercises={matches}
-        header={header}
-        meta={meta}
-        onSelect={onSelectExercise}
-        isSelected={isSelected}
-        empty="No exercises match."
-        emptySymbol="magnifyingglass"
-      />
-    );
-  }
+  // One FlatList across both modes on purpose: swapping element type here remounts
+  // ListHeaderComponent, and the caller's search field lives in it — crossing
+  // MIN_SEARCH_LENGTH would drop focus and autoFocus would reopen the keyboard.
+  const rows: (MuscleGroupRow | LibraryExercise)[] = searching ? matches : groups;
 
   return (
     <FlatList
       contentInsetAdjustmentBehavior="automatic"
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
-      data={groups}
-      keyExtractor={(g) => g.group}
+      data={rows}
+      keyExtractor={(item) => ("group" in item ? item.group : item.id)}
       contentContainerStyle={[styles.content, { paddingBottom: clearance + theme.space(6) }]}
       ListHeaderComponent={header}
       ListEmptyComponent={
-        <EmptyState
-          title="Your library is empty"
-          description="Create an exercise to start building your library."
-          systemImage="dumbbell"
-        />
+        searching ? (
+          <EmptyState title="No exercises match." systemImage="magnifyingglass" />
+        ) : (
+          <EmptyState
+            title="Your library is empty"
+            description="Create an exercise to start building your library."
+            systemImage="dumbbell"
+          />
+        )
       }
-      renderItem={({ item }) => (
-        <ExerciseListRow
-          name={item.group}
-          meta={`${item.count} exercise${item.count === 1 ? "" : "s"}`}
-          onPress={() => onSelectGroup(item.group)}
-        />
-      )}
+      renderItem={({ item }) =>
+        "group" in item ? (
+          <ExerciseListRow
+            name={item.group}
+            meta={`${item.count} exercise${item.count === 1 ? "" : "s"}`}
+            onPress={() => onSelectGroup(item.group)}
+          />
+        ) : (
+          <ExerciseListRow
+            name={item.name}
+            meta={meta(item)}
+            onPress={() => onSelectExercise(item)}
+            selected={isSelected?.(item)}
+          />
+        )
+      }
     />
   );
 }

@@ -2,7 +2,8 @@ import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { Pressable, StyleSheet, Text } from "react-native";
 import { ExerciseBrowser, MIN_SEARCH_LENGTH } from "../../../src/components/ExerciseBrowser";
-import { common, HeaderButton, Input } from "../../../src/components/ui";
+import { common, Input, KeyboardDismissBar } from "../../../src/components/ui";
+import { backHeaderItems } from "../../../src/navigation/headerOptions";
 import { type PickerTarget, useExercisePicker } from "../../../src/navigation/useExercisePicker";
 import { theme } from "../../../src/theme";
 
@@ -19,15 +20,16 @@ export default function ExercisePickerRoute() {
       <Stack.Screen
         options={{
           title: addTo === "template" ? "Add to template" : "Add exercise",
-          headerLeft: () => <HeaderButton label="Back" onPress={() => router.back()} />,
-          headerRight: () => (
-            <HeaderButton
-              label={count > 0 ? `Add (${count})` : "Add"}
-              prominent
-              disabled={count === 0}
-              onPress={commit}
-            />
-          ),
+          unstable_headerLeftItems: backHeaderItems,
+          unstable_headerRightItems: () => [
+            {
+              type: "button",
+              label: count > 0 ? `Add (${count})` : "Add",
+              variant: "done",
+              disabled: count === 0,
+              onPress: commit,
+            },
+          ],
         }}
       />
       <ExerciseBrowser
@@ -67,6 +69,7 @@ export default function ExercisePickerRoute() {
           </>
         }
       />
+      <KeyboardDismissBar />
     </>
   );
 }

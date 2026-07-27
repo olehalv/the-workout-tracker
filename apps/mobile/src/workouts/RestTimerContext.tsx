@@ -14,9 +14,12 @@ export const REST_STEP = 15;
 
 export interface RestTimer {
   running: boolean;
+  paused: boolean;
   remaining: number;
   duration: number;
   start: (seconds?: number) => void;
+  pause: () => void;
+  resume: () => void;
   skip: () => void;
   addTime: (delta: number) => void;
   setDuration: (seconds: number) => void;
@@ -76,6 +79,23 @@ export function RestTimerProvider({
     [duration, applyDuration],
   );
 
+  // Holding `remaining` while clearing the end-timestamp is what distinguishes paused
+  // from stopped; skip zeroes it so the bar falls back to showing the chosen duration.
+  const pause = useCallback(() => {
+    setEndsAt((prev) => {
+      if (prev === null) return prev;
+      setRemaining(Math.max(1, Math.ceil((prev - Date.now()) / 1000)));
+      return null;
+    });
+  }, []);
+
+  const resume = useCallback(() => {
+    setRemaining((rem) => {
+      if (rem > 0) setEndsAt(Date.now() + rem * 1000);
+      return rem;
+    });
+  }, []);
+
   const skip = useCallback(() => {
     setEndsAt(null);
     setRemaining(0);
@@ -93,8 +113,19 @@ export function RestTimerProvider({
   );
 
   const value = useMemo<RestTimer>(
-    () => ({ running: endsAt !== null, remaining, duration, start, skip, addTime, setDuration }),
-    [endsAt, remaining, duration, start, skip, addTime, setDuration],
+    () => ({
+      running: endsAt !== null,
+      paused: endsAt === null && remaining > 0,
+      remaining,
+      duration,
+      start,
+      pause,
+      resume,
+      skip,
+      addTime,
+      setDuration,
+    }),
+    [endsAt, remaining, duration, start, pause, resume, skip, addTime, setDuration],
   );
 
   return <RestTimerContext.Provider value={value}>{children}</RestTimerContext.Provider>;

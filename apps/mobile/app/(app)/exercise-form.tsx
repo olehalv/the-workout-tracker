@@ -1,8 +1,15 @@
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { Alert, StyleSheet, Text, View } from "react-native";
-import { Button, GlassPressable, HeaderButton, Input, SectionLabel } from "../../src/components/ui";
+import {
+  Button,
+  GlassPressable,
+  Input,
+  KeyboardDismissBar,
+  SectionLabel,
+} from "../../src/components/ui";
 import { useExerciseSelection } from "../../src/navigation/ExerciseSelectionContext";
+import { backHeaderItems } from "../../src/navigation/headerOptions";
 import { theme } from "../../src/theme";
 import { MUSCLE_GROUPS } from "../../src/workouts/defaultExercises";
 import { useWorkouts } from "../../src/workouts/WorkoutContext";
@@ -59,72 +66,75 @@ export default function ExerciseFormRoute() {
   };
 
   return (
-    <View style={styles.container}>
-      <Stack.Screen
-        options={{
-          title: isEdit ? "Edit exercise" : "New exercise",
-          headerLeft: () => <HeaderButton label="Back" onPress={() => router.back()} />,
-        }}
-      />
+    <>
+      <View style={styles.container}>
+        <Stack.Screen
+          options={{
+            title: isEdit ? "Edit exercise" : "New exercise",
+            unstable_headerLeftItems: backHeaderItems,
+          }}
+        />
 
-      <SectionLabel style={styles.label}>Name</SectionLabel>
-      <Input
-        style={styles.input}
-        placeholder="e.g. Bulgarian Split Squat"
-        value={name}
-        onChangeText={setName}
-        autoFocus={!isEdit}
-        autoCorrect={false}
-        returnKeyType="done"
-      />
+        <SectionLabel style={styles.label}>Name</SectionLabel>
+        <Input
+          style={styles.input}
+          placeholder="e.g. Bulgarian Split Squat"
+          value={name}
+          onChangeText={setName}
+          autoFocus={!isEdit}
+          autoCorrect={false}
+          returnKeyType="done"
+        />
 
-      <SectionLabel style={styles.label}>Muscle groups</SectionLabel>
-      <View style={styles.chips}>
-        {MUSCLE_GROUPS.map((group) => {
-          const selected = groups.includes(group);
-          return (
-            <GlassPressable
-              key={group}
-              onPress={() => toggleGroup(group)}
-              tint={selected ? theme.colors.accent : undefined}
-              surfaceStyle={[styles.chip, !selected && styles.chipBorder]}
-              fallbackStyle={selected ? styles.chipSelected : styles.chipUnselected}
-            >
-              <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{group}</Text>
-            </GlassPressable>
-          );
-        })}
-      </View>
+        <SectionLabel style={styles.label}>Muscle groups</SectionLabel>
+        <View style={styles.chips}>
+          {MUSCLE_GROUPS.map((group) => {
+            const selected = groups.includes(group);
+            return (
+              <GlassPressable
+                key={group}
+                onPress={() => toggleGroup(group)}
+                tint={selected ? theme.colors.accent : undefined}
+                surfaceStyle={[styles.chip, !selected && styles.chipBorder]}
+                fallbackStyle={selected ? styles.chipSelected : styles.chipUnselected}
+              >
+                <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{group}</Text>
+              </GlassPressable>
+            );
+          })}
+        </View>
 
-      {isEdit ? (
-        <>
-          <Button title="Save changes" disabled={!canSave} onPress={doSave} />
-          <Button
-            title="Delete exercise"
-            variant="danger"
-            onPress={confirmDelete}
-            style={styles.gapTop}
-          />
-        </>
-      ) : (
-        <>
-          <Button
-            title={addTo ? "Create & select" : "Create exercise"}
-            disabled={!canSave}
-            onPress={() => doCreate(addTo !== undefined)}
-          />
-          {addTo ? (
+        {isEdit ? (
+          <>
+            <Button title="Save changes" disabled={!canSave} onPress={doSave} />
             <Button
-              title="Create only"
-              variant="secondary"
-              disabled={!canSave}
-              onPress={() => doCreate(false)}
+              title="Delete exercise"
+              variant="danger"
+              onPress={confirmDelete}
               style={styles.gapTop}
             />
-          ) : null}
-        </>
-      )}
-    </View>
+          </>
+        ) : (
+          <>
+            <Button
+              title={addTo ? "Create & select" : "Create exercise"}
+              disabled={!canSave}
+              onPress={() => doCreate(addTo !== undefined)}
+            />
+            {addTo ? (
+              <Button
+                title="Create only"
+                variant="secondary"
+                disabled={!canSave}
+                onPress={() => doCreate(false)}
+                style={styles.gapTop}
+              />
+            ) : null}
+          </>
+        )}
+      </View>
+      <KeyboardDismissBar />
+    </>
   );
 }
 

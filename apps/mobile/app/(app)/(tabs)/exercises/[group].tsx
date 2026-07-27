@@ -1,7 +1,7 @@
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useMemo } from "react";
 import { ExerciseList, exercisesInGroup } from "../../../../src/components/ExerciseBrowser";
-import { HeaderButton } from "../../../../src/components/ui";
+import { backHeaderItems } from "../../../../src/navigation/headerOptions";
 import { useWorkouts } from "../../../../src/workouts/WorkoutContext";
 
 export default function MuscleGroupRoute() {
@@ -27,7 +27,7 @@ export default function MuscleGroupRoute() {
         options={{
           title: group,
           headerBackVisible: false,
-          headerLeft: () => <HeaderButton label="Back" onPress={() => router.back()} />,
+          unstable_headerLeftItems: backHeaderItems,
         }}
       />
       <ExerciseList

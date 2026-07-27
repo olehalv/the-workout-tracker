@@ -1,7 +1,7 @@
-import { router, Stack, useLocalSearchParams } from "expo-router";
+import { Stack, useLocalSearchParams } from "expo-router";
 import { useMemo } from "react";
 import { ExerciseList, exercisesInGroup } from "../../../src/components/ExerciseBrowser";
-import { HeaderButton } from "../../../src/components/ui";
+import { backHeaderItems } from "../../../src/navigation/headerOptions";
 import { type PickerTarget, useExercisePicker } from "../../../src/navigation/useExercisePicker";
 
 export default function PickerMuscleGroupRoute() {
@@ -19,15 +19,16 @@ export default function PickerMuscleGroupRoute() {
         options={{
           title: group,
           headerBackVisible: false,
-          headerLeft: () => <HeaderButton label="Back" onPress={() => router.back()} />,
-          headerRight: () => (
-            <HeaderButton
-              label={count > 0 ? `Add (${count})` : "Add"}
-              prominent
-              disabled={count === 0}
-              onPress={commit}
-            />
-          ),
+          unstable_headerLeftItems: backHeaderItems,
+          unstable_headerRightItems: () => [
+            {
+              type: "button",
+              label: count > 0 ? `Add (${count})` : "Add",
+              variant: "done",
+              disabled: count === 0,
+              onPress: commit,
+            },
+          ],
         }}
       />
       <ExerciseList

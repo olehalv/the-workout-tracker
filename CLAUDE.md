@@ -198,7 +198,14 @@ over HTTP).
   item to 1.025 and ghosts it to 0.75 opacity**, which overflows the row's slot and
   clips into neighbours; we disable both via a shared `cellAnimations` constant
   (`src/components/reorder.ts`, `REORDER_CELL_ANIMATIONS`) and signal "picked up" with
-  a border + shadow on the card instead. Pass it to every `ReorderableList`. **Reanimated hard-crashes on any
+  a border + shadow on the card instead. Pass it to every `ReorderableList`.
+  **Its `keyExtractor` must tolerate an undefined item:** the library calls
+  `keyExtractor(data[i], i)` from its own `markCells` (which runs *before* `onReorder`)
+  against a captured `data`, so `i` can run past the end. It falls back to the index
+  when the key comes back falsy, but `item.id` on `undefined` throws before that —
+  surfacing as "Cannot read property 'uid'/'id' of undefined" pointing at your
+  `keyExtractor`. Always write `(item, i) => item?.id ?? String(i)`; a guarded
+  `onReorder` does **not** prevent it, since the throw happens upstream of the callback. **Reanimated hard-crashes on any
   JS↔native version mismatch**, and Expo Go ships the exact native versions its SDK
   pins — so `react-native-reanimated` (`4.5.0`) and `react-native-worklets`
   (`0.10.0`) are pinned without a range. `expo install` / `npm update` float them to
@@ -237,7 +244,12 @@ over HTTP).
   characters skips the grouping** and matches exercises directly — drilling through a
   category to reach something you already named is a step backwards, but one or two
   letters match too much to be worth replacing the group list with. The picker's
-  "Create …" row uses the same threshold so nothing appears over the groups mid-word. The picker has its own `Stack`
+  "Create …" row uses the same threshold so nothing appears over the groups mid-word.
+  **Both modes render one and the same `FlatList`** — swapping element type across the
+  threshold remounts `ListHeaderComponent`, and the callers put their search field in
+  it, so crossing the 3rd character dropped focus and `autoFocus` bounced the keyboard
+  shut and open again. Vary `data`/`renderItem`/`ListEmptyComponent`, never the list
+  itself. The picker has its own `Stack`
   inside the modal so a group pushes *within* the sheet rather than presenting a
   second sheet on top; that's why its parent `Stack.Screen` sets
   `headerShown: false`.
@@ -271,8 +283,7 @@ over HTTP).
   duplicating `StyleSheet` blocks: `Button` (primary/secondary/danger/dashed, md/sm,
   optional Ionicon), `Card` (surface panel, `padding` in `theme.space` steps),
   `Input` (surface text field), `SectionLabel` (the uppercase muted heading),
-  `HeaderButton` (a Cancel/Done bar button for a route's `headerLeft`/`headerRight`
-  — screens never draw their own title bar), `Stat`/`StatGrid` (the stat tiles), `Segmented` (settings-style toggles:
+  `Stat`/`StatGrid` (the stat tiles), `Segmented` (settings-style toggles:
   `variant` buttons|pill, `tone` for pills on a surface card), `EmptyState` (the
   native empty-list placeholder — see `@expo/ui` below), and `common` (the
   `surface`/`pressed`/`disabled` style fragments). Barrel-exported from
@@ -288,7 +299,9 @@ over HTTP).
   `matchContents`), otherwise it collapses to zero. Currently used by: `Segmented`
   (`variant="pill"` → `Picker` + `pickerStyle("segmented")`), `EmptyState`
   (`ContentUnavailableView`, iOS 17+), `LineChart` (`Chart` type `line` — Swift
-  Charts), and the template form's set-count `Stepper`. Each keeps its previous
+  Charts), and the template form's set-count `Stepper`. (Not the active workout's
+  header menu — a nav bar wants real `UIBarButtonItem`s, not a hosted SwiftUI view;
+  see Headers.) Each keeps its previous
   JS/`View` implementation behind a `Platform.OS === "ios"` check, since `swift-ui`
   is iOS-only. Verify a modifier is registered in the package's
   `ios/Modifiers/ViewModifierRegistry.swift` before relying on it — the JS layer
@@ -341,7 +354,8 @@ over HTTP).
     `ExerciseBrowser`), `exercise-form`
     (`?id` to edit, else `?name` to prefill and `?addTo=workout|template`),
     `exercise-progress` (`?id`, `?name` fallback), `template-picker`,
-    `template-form` (`?id` to edit) — `presentation: "modal"`.
+    `template-form` (no params — which preset is being edited lives in the draft) —
+    `presentation: "modal"`.
   - `paywall` — `presentation: "formSheet"` with `sheetAllowedDetents:
     "fitToContents"`, so iOS owns the sheet: no hand-rolled `Animated` slide, no
     scrim, no grabber of our own.
@@ -376,20 +390,32 @@ over HTTP).
     under it. The theme's `dark: true` is what drives the header's
     `experimental_userInterfaceStyle`, so labels come out light without being told
     to.
-  - Bar buttons are `HeaderButton` (`src/components/ui/`) passed to
-    `headerLeft`/`headerRight`; native-stack renders them **inside** the real
-    `UINavigationBar` via `RNSScreenStackHeaderSubview`. **A `headerLeft` that just pops is
-    labelled "Back" — never "Cancel", "Minimize" or anything else** — and `headerRight`
-    is "Done" (`prominent`) or a screen-specific action like "Edit". Drill-downs set
-    `headerBackVisible: false` and supply their own `HeaderButton label="Back"` rather
-    than the system chevron, so every bar button looks the same. The fully-native
-    `unstable_header*Items` (actual `UIBarButtonItem`s, with iOS 26 glass grouping) was
-    blocked on SDK 54 because `react-native-screens` 4.16 lacked the native prop —
-    **that blocker is gone on SDK 57**: screens 4.26 ships `RNSBarButtonItem` +
-    `headerLeftBarButtonItems`, and expo-router exposes both `unstable_header*Items` and
-    a `Stack.Toolbar` API. We have **not** migrated to it; `HeaderButton` still works.
-    Evaluate it on-device before switching, and if you do, switch every screen at once
-    so the bar buttons stay uniform.
+  - **Bar buttons are `unstable_header*Items`, never `headerLeft`/`headerRight`.**
+    Every screen is migrated and the old `HeaderButton` component is **deleted** — do
+    not reintroduce either. The items API produces actual `UIBarButtonItem`s
+    (`react-native-screens` 4.26's `RNSBarButtonItem`), where `headerLeft`/`headerRight`
+    wrap whatever you return in **one** `RNSScreenStackHeaderSubview` — i.e. one bar
+    item, which iOS 26 draws as a **single shared glass capsule** around the lot however
+    you style the views inside. That's the whole reason for the switch: a screen with
+    two right-side buttons couldn't render them as two buttons any other way.
+  - Shape: `unstable_headerLeftItems: backHeaderItems` (the shared "Back" popper in
+    `src/navigation/headerOptions.ts` — nine screens used to declare it identically),
+    and `unstable_headerRightItems: () => [{ type: "button", label: "Done", variant:
+    "done", … }]`. **A left item that just pops is labelled "Back" — never "Cancel",
+    "Minimize" or anything else**; the right one is "Done"/"Add (N)"/"Edit", carrying
+    `variant: "done"` for the bold treatment. Drill-downs keep
+    `headerBackVisible: false` so the system chevron doesn't sit beside our own Back.
+    A `{ type: "menu", icon: sfSymbol "ellipsis" }` item holds a screen's secondary
+    actions — a UIKit `UIMenu`, not `@expo/ui`; its `menu.items` are `type: "action"`
+    entries and `destructive: true` renders red (see the active workout's Save as
+    template / Discard).
+  - Three gotchas. **expo-router reverses the right-items array** before handing it to
+    screens, so authored order reads left→right as written. The items are **iOS-only**
+    — nothing renders on Android, which is fine because Apple sign-in gates the app to
+    iOS anyway, but it means there is no cross-platform fallback left. And all the types
+    (`NativeStackHeaderItem`, `NativeStackHeaderItemMenuAction`, …) come from the
+    **`expo-router` root**, same rule as everything else here. `Stack.Toolbar` is the
+    other API expo-router exposes here; we don't use it.
   - **Tab screens use iOS large titles**, which makes native-stack transparent the
     header and hand the inset to the screen's primary scroll view. So each tab
     screen's root **is** a `FlatList`/`ScrollView` with
@@ -409,14 +435,61 @@ over HTTP).
     it. Putting it in `headerLeft` does land it above the large title and was tried
     and rejected — that slot is for bar buttons, and the label doesn't collapse with
     the large title, so it lingers beside the small title once scrolled. On the modal
-    routes the eyebrow became the native title itself ("Active workout", "Workout
+    routes the eyebrow became the native title itself ("Workout", "Workout
     complete") or was dropped where the title already said it.
+  - **An asymmetric bar puts the title off-centre, and we accept that** — don't spend
+    another pass on it. The active workout (one item left, two right) leans toward
+    `headerLeft`. There is no API for it: `headerTitleAlign` is Android-only in
+    native-stack, and `react-native-screens` 4.26 has no `titleAlign` prop at all.
+    Shortening the title does **not** help — it isn't collision avoidance, which is why
+    "Active workout" → "Workout" changed nothing. The only lever is padding the narrow
+    side with a `{ type: "spacing", spacing: N }` item (a real
+    `UIBarButtonSystemItemFixedSpace`, `RNSScreenStackHeaderConfig.mm`), where `N` is
+    the difference between the two groups' widths — but that's an eyeballed constant
+    needing a re-measure whenever a label changes, and it was **tried and reverted** as
+    not worth the upkeep.
+- **The keyboard's "Done" bar is `KeyboardDismissBar` (UI kit), mounted per screen.**
+  Two approaches were tried and both fail here, so don't reach for them again:
+  RN's **`InputAccessoryView` wraps its children in `SafeAreaView`**, which measures 0
+  inside a just-presented modal view controller (same footgun as below) — and every
+  screen with a text field is a modal, so it rendered nowhere. A **single overlay in
+  `app/(app)/_layout.tsx`** doesn't work either: modal routes are separate native view
+  controllers presented *above* the RN root, so a root-level sibling sits behind them.
+  (`MinimizedWorkoutBar` gets away with it only because it claims tab screens.) So the
+  bar listens to `keyboardWillShow/Hide` and docks itself at `bottom: keyboardHeight`,
+  and each screen holding an input renders one — as a **sibling of its padded
+  container**, not inside it, so the offset isn't measured from a padding box. A screen
+  It is anchored to the **screen bottom** (`bottom: 0`, `height` = bar + keyboard,
+  `paddingBottom` = keyboard) rather than to the keyboard top, so its fill runs behind
+  iOS 26's rounded keyboard corners instead of stopping short of them — the same trick
+  the workout screen's surface-filled KAV uses.
+  **The active workout is deliberately the exception:** it keeps its own dismiss button
+  inside the rest-timer footer (that footer already docks over the keyboard, and a
+  second bar on top of it read as clutter), so it does *not* render
+  `KeyboardDismissBar`. Every other screen with a field does.
+- **The bar's left/right arrows move the caret inside the focused field**, one
+  character at a time — they do *not* jump between fields. `src/components/ui/
+  keyboardCaret.tsx` is a module-level store (no provider needed) holding the focused
+  `TextInput`, its selection and its length; `useKeyboardField(text)` returns the
+  `ref`/`onFocus`/`onBlur`/`onSelectionChange` props that feed it, and the kit `Input`
+  wires itself up. Movement uses the instance method `TextInput.setSelection(at, at)`;
+  a non-empty selection collapses to the edge being moved away from, like a real arrow
+  key. A raw `TextInput` joins by spreading `useKeyboardField(text)` (the Me tab's
+  bodyweight does). The **active workout does not use any of this** — it keeps a plain
+  dismiss button beside the rest timer in a single footer row.
 - **`KeyboardAvoidingView` overwrites the `paddingBottom` you give it** — with
   `behavior="padding"` it renders
   `<View style={StyleSheet.compose(style, {paddingBottom: keyboardHeight})}>`, so a
   safe-area bottom inset set on the KAV itself is composed away (0 while the keyboard
   is closed) and the last control sits half off-screen. Put the padding on an inner
   `View` and leave the KAV as a bare `flex: 1` wrapper — see `template-form.tsx`.
+- **A KAV under a header needs `keyboardVerticalOffset={useHeaderHeight()}`.** It
+  measures itself with `onLayout`, whose `y` is relative to its *parent* — 0 for a
+  screen-root KAV — but compares that against the keyboard's **window** coordinate.
+  So it under-pads by exactly the height of everything above it, and a control pinned
+  to the bottom (the active workout's rest timer) stays behind the keyboard. Take the
+  offset from `useHeaderHeight` (from `expo-router/react-navigation`, which native-stack
+  populates), not a hardcoded number — it differs per presentation.
 - **Safe area: use `useSafeAreaInsets()`, never `<SafeAreaView>`.** `SafeAreaView`
   measures itself natively, and inside a screen that mounts in a just-presented
   modal view controller that measurement lands on **0** — so a pushed route opens
@@ -506,6 +579,15 @@ over HTTP).
     way to hand a value back, so the draft is the hand-off point. Its `openNew(seed?)`
     / `openEditor(preset)` seed the draft *and* navigate, which keeps "the form is
     always seeded before it mounts" a single invariant instead of a mount effect.
+    **`presetId` (which template is being edited) rides on the draft too, never on a
+    route param** — the picker returns via `router.dismissTo("/template-form")`, which
+    carries no params, so an `?id` silently vanished and Save created a second template
+    instead of updating the one being edited. Likewise the draft owns
+    `reorderExercises(from, to)` rather than exposing a raw `setExercises`: a caller
+    that computes the new order from a captured `exercises` array can splice with a
+    stale index and insert `undefined`, which surfaces as "Cannot read property 'uid'
+    of undefined" in `keyExtractor`. **Every draft mutator must use the functional
+    updater form**, same as `WorkoutContext`.
   - Tab screens (`app/(app)/(tabs)/`): `index.tsx` (start/resume + a paged weekly
     `src/components/WeekCalendar.tsx` strip — one week per swipe, current week
     first, lazily loading one more week each page back up to ~1 year; filters
@@ -527,7 +609,16 @@ over HTTP).
     Back + Lats; abs+obliques→Core; tibialis→Calves) and renders/heat-tints them.
     Uses `react-native-svg` — bundled in Expo Go — for the figures; it aggregates
     sets-per-muscle-group from logged workouts). Workout flow, all under
-    `app/(app)/`: `workout.tsx` (active workout), `exercise-picker/`
+    `app/(app)/`: `workout.tsx` (active workout — the elapsed clock / sets / volume /
+    start-time block is the exercise list's `ListHeaderComponent`, so it scrolls away
+    rather than holding screen height on a screen that is mostly data entry; only the
+    rest-timer footer is pinned. **The KAV carries no padding and is filled with
+    `surface`, not `background`** — its padding box *is* the keyboard region, so
+    colouring it makes the footer read as continuing underneath iOS 26's rounded
+    keyboard corners, which would otherwise show the screen background through the
+    gaps. All the screen's padding therefore lives on the list's `contentContainerStyle`
+    and on the footer, and the list sets `background` on its own `style` to cover the
+    area above the footer), `exercise-picker/`
     (search/create + add), `exercise-form.tsx` (create/edit/delete a library
     exercise; multi-select muscle groups; "Create" vs "Create & add", the latter
     routed by the `addTo` param), `exercise-progress.tsx` (chart + history, with an
@@ -549,10 +640,17 @@ over HTTP).
     `RestTimer` bridge in the layout — so changing 1:30 → 3:00 sticks across
     restarts, and `RestTimerContext` stays decoupled from the store (no import
     cycle). UI:
-    `src/components/RestTimerBar.tsx` (control above the workout footer) and
+    `src/components/RestTimerBar.tsx` (one layout for every state — stop / −15 /
+    time over an accent progress line / +15 / play-pause — where idle just shows the
+    chosen duration with the line full; **draws no chrome of its own** — it is laid
+    into the workout screen's footer bar, which owns the surface fill, the top hairline
+    and the safe-area padding, so the timer reads as an attached footer rather than a
+    floating card; that footer sits inside the KAV, so when the keyboard opens it rides
+    up and docks on top of it, keeping the same hairline) and
     `src/components/RestPill.tsx` (tap-to-resume pill shown on the tab screens while
     a minimized workout is resting). Auto-starts when a set is added; also manual
-    start/skip/±15s. Tabs use `@expo/vector-icons` (Ionicons; bundled with Expo).
+    start/pause/resume/stop/±15s. `paused` is "no end-timestamp but `remaining` > 0",
+    which is what separates it from stopped (`remaining` 0). Tabs use `@expo/vector-icons` (Ionicons; bundled with Expo).
 - Pro paywall (`src/purchases/`): `PurchaseProvider` + `usePurchases()`
   (`PurchaseContext.tsx`) expose `isPro`/`entitlement`/`trialDaysLeft`/`busy` plus
   `openPaywall()`, `startFreeTrial()`, `subscribe(plan)` and

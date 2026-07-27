@@ -11,11 +11,12 @@ export interface DraftExercise extends PresetExercise {
 
 interface TemplateDraftValue {
   name: string;
+  presetId: string | null;
   exercises: DraftExercise[];
   setName: (name: string) => void;
-  setExercises: (exercises: DraftExercise[]) => void;
   addExercise: (exerciseId: string, name: string) => void;
   removeExercise: (uid: string) => void;
+  reorderExercises: (from: number, to: number) => void;
   setSets: (uid: string, sets: number) => void;
   openNew: (exercises?: PresetExercise[]) => void;
   openEditor: (preset: WorkoutPreset) => void;
@@ -33,6 +34,7 @@ const withUids = (exercises: PresetExercise[]): DraftExercise[] =>
 // exercise back to the template form, which stays mounted underneath it.
 export function TemplateDraftProvider({ children }: { children: ReactNode }) {
   const [name, setName] = useState("");
+  const [presetId, setPresetId] = useState<string | null>(null);
   const [exercises, setExercises] = useState<DraftExercise[]>([]);
 
   const addExercise = useCallback((exerciseId: string, exerciseName: string) => {
@@ -46,6 +48,16 @@ export function TemplateDraftProvider({ children }: { children: ReactNode }) {
     setExercises((cur) => cur.filter((e) => e.uid !== uid));
   }, []);
 
+  const reorderExercises = useCallback((from: number, to: number) => {
+    setExercises((cur) => {
+      const n = cur.length;
+      if (from === to || from < 0 || to < 0 || from >= n || to >= n) return cur;
+      const next = [...cur];
+      next.splice(to, 0, next.splice(from, 1)[0]);
+      return next;
+    });
+  }, []);
+
   const setSets = useCallback((uid: string, sets: number) => {
     setExercises((cur) =>
       cur.map((e) =>
@@ -56,29 +68,45 @@ export function TemplateDraftProvider({ children }: { children: ReactNode }) {
 
   const openNew = useCallback((seed: PresetExercise[] = []) => {
     setName("");
+    setPresetId(null);
     setExercises(withUids(seed));
     router.push("/template-form");
   }, []);
 
+  // Which preset is being edited rides on the draft, not a route param: the picker
+  // returns with router.dismissTo("/template-form"), which does not carry params, so
+  // an ?id would be lost and the form would save a new template instead.
   const openEditor = useCallback((preset: WorkoutPreset) => {
     setName(preset.name);
+    setPresetId(preset.id);
     setExercises(withUids(preset.exercises));
-    router.push({ pathname: "/template-form", params: { id: preset.id } });
+    router.push("/template-form");
   }, []);
 
   const value = useMemo<TemplateDraftValue>(
     () => ({
       name,
+      presetId,
       exercises,
       setName,
-      setExercises,
       addExercise,
       removeExercise,
+      reorderExercises,
       setSets,
       openNew,
       openEditor,
     }),
-    [name, exercises, addExercise, removeExercise, setSets, openNew, openEditor],
+    [
+      name,
+      presetId,
+      exercises,
+      addExercise,
+      removeExercise,
+      reorderExercises,
+      setSets,
+      openNew,
+      openEditor,
+    ],
   );
 
   return <TemplateDraftContext.Provider value={value}>{children}</TemplateDraftContext.Provider>;

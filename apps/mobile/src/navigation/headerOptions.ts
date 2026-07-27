@@ -1,5 +1,16 @@
-import { DarkTheme, type NativeStackNavigationOptions, type Theme } from "expo-router";
+import {
+  DarkTheme,
+  type NativeStackHeaderItem,
+  type NativeStackNavigationOptions,
+  router,
+  type Theme,
+} from "expo-router";
 import { theme } from "../theme";
+
+// unstable_header*Items are iOS-only — they render nothing on Android.
+export const backHeaderItems = (): NativeStackHeaderItem[] => [
+  { type: "button", label: "Back", onPress: () => router.back() },
+];
 
 // Header/screen colours come from here, not from per-screen headerStyle overrides:
 // setting headerStyle.backgroundColor alongside a large title makes the title text

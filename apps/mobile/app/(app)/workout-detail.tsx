@@ -1,7 +1,8 @@
-import { Redirect, router, Stack, useLocalSearchParams } from "expo-router";
+import { Redirect, Stack, useLocalSearchParams } from "expo-router";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { Card, HeaderButton, SectionLabel, Stat, StatGrid } from "../../src/components/ui";
+import { Card, SectionLabel, Stat, StatGrid } from "../../src/components/ui";
 import { MusclesTrainedCard, StrengthSummaryCard } from "../../src/components/WorkoutRecap";
+import { backHeaderItems } from "../../src/navigation/headerOptions";
 import { theme } from "../../src/theme";
 import { useTemplateDraft } from "../../src/workouts/TemplateDraftContext";
 import { elapsedMs, formatDuration, formatTimeOfDay } from "../../src/workouts/time";
@@ -33,7 +34,7 @@ export default function WorkoutDetailRoute() {
       <Stack.Screen
         options={{
           title: fmtDate(workout.startedAt),
-          headerLeft: () => <HeaderButton label="Back" onPress={() => router.back()} />,
+          unstable_headerLeftItems: backHeaderItems,
         }}
       />
 

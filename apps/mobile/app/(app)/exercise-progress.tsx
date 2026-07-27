@@ -3,14 +3,8 @@ import { useMemo } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { LineChart } from "../../src/components/LineChart";
 import { ProGate } from "../../src/components/ProGate";
-import {
-  Card,
-  EmptyState,
-  HeaderButton,
-  SectionLabel,
-  Stat,
-  StatGrid,
-} from "../../src/components/ui";
+import { Card, EmptyState, SectionLabel, Stat, StatGrid } from "../../src/components/ui";
+import { backHeaderItems } from "../../src/navigation/headerOptions";
 import { usePurchases } from "../../src/purchases/PurchaseContext";
 import { theme } from "../../src/theme";
 import type { ProgressPoint } from "../../src/workouts/types";
@@ -53,17 +47,17 @@ export default function ExerciseProgressRoute() {
       <Stack.Screen
         options={{
           title: libraryExercise?.name ?? name ?? "",
-          headerLeft: () => <HeaderButton label="Back" onPress={() => router.back()} />,
-          headerRight: libraryExercise
-            ? () => (
-                <HeaderButton
-                  label="Edit"
-                  prominent
-                  onPress={() =>
-                    router.push({ pathname: "/exercise-form", params: { id: libraryExercise.id } })
-                  }
-                />
-              )
+          unstable_headerLeftItems: backHeaderItems,
+          unstable_headerRightItems: libraryExercise
+            ? () => [
+                {
+                  type: "button",
+                  label: "Edit",
+                  variant: "done",
+                  onPress: () =>
+                    router.push({ pathname: "/exercise-form", params: { id: libraryExercise.id } }),
+                },
+              ]
             : undefined,
         }}
       />

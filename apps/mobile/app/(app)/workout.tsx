@@ -1,8 +1,10 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Redirect, router, Stack } from "expo-router";
+import { type NativeStackHeaderItemMenuAction, Redirect, router, Stack } from "expo-router";
+import { useHeaderHeight } from "expo-router/react-navigation";
 import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -19,8 +21,9 @@ import ReorderableList, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { RestTimerBar } from "../../src/components/RestTimerBar";
 import { REORDER_CELL_ANIMATIONS } from "../../src/components/reorder";
-import { Button, Card, common, GlassPressable, HeaderButton } from "../../src/components/ui";
+import { Button, Card, common, GlassPressable } from "../../src/components/ui";
 import { useExerciseSelection } from "../../src/navigation/ExerciseSelectionContext";
+import { backHeaderItems } from "../../src/navigation/headerOptions";
 import { theme } from "../../src/theme";
 import { useRestTimer } from "../../src/workouts/RestTimerContext";
 import { useTemplateDraft } from "../../src/workouts/TemplateDraftContext";
@@ -62,13 +65,24 @@ export default function WorkoutRoute() {
   const draft = useTemplateDraft();
   const selection = useExerciseSelection();
   const insets = useSafeAreaInsets();
+  const headerHeight = useHeaderHeight();
   const rest = useRestTimer();
   const now = useNow(active !== null);
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
 
   useEffect(() => {
     setMinimized(false);
     return () => setMinimized(true);
   }, [setMinimized]);
+
+  useEffect(() => {
+    const shown = Keyboard.addListener("keyboardWillShow", () => setKeyboardOpen(true));
+    const hidden = Keyboard.addListener("keyboardWillHide", () => setKeyboardOpen(false));
+    return () => {
+      shown.remove();
+      hidden.remove();
+    };
+  }, []);
 
   if (!active) return <Redirect href={summary ? "/summary" : "/"} />;
 
@@ -109,33 +123,64 @@ export default function WorkoutRoute() {
     if (found) router.push({ pathname: "/exercise-form", params: { id: found.id } });
   };
 
+  const menuActions: NativeStackHeaderItemMenuAction[] = [
+    ...(active.exercises.length > 0
+      ? [
+          {
+            type: "action",
+            label: "Save as template",
+            icon: { type: "sfSymbol", name: "doc.badge.plus" },
+            onPress: () => draft.openNew(templateSeed(active)),
+          } satisfies NativeStackHeaderItemMenuAction,
+        ]
+      : []),
+    {
+      type: "action",
+      label: "Discard workout",
+      icon: { type: "sfSymbol", name: "trash" },
+      onPress: confirmDiscard,
+      destructive: true,
+    },
+  ];
+
   return (
-    <View style={[styles.screen, { paddingBottom: insets.bottom }]}>
+    <View style={styles.screen}>
       <Stack.Screen
         options={{
-          title: "Active workout",
-          headerLeft: () => <HeaderButton label="Back" onPress={() => router.back()} />,
+          title: "Workout",
+          unstable_headerLeftItems: backHeaderItems,
+          unstable_headerRightItems: () => [
+            {
+              type: "button",
+              label: "Finish",
+              variant: "done",
+              disabled: !hasLoggedSet,
+              onPress: finish,
+            },
+            {
+              type: "menu",
+              label: "",
+              icon: { type: "sfSymbol", name: "ellipsis" },
+              accessibilityLabel: "More workout actions",
+              menu: { items: menuActions },
+            },
+          ],
         }}
       />
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
+        // KAV measures its own frame with onLayout, whose y is relative to the parent
+        // (0 here) rather than the window, so it under-pads by everything above it —
+        // the header. Without this the rest timer stays behind the keyboard.
+        keyboardVerticalOffset={headerHeight}
       >
-        <View style={styles.header}>
-          <View style={styles.clock}>
-            <Ionicons name="time-outline" size={14} color={theme.colors.accent} />
-            <Text style={styles.clockText}>{formatClock(elapsed)}</Text>
-          </View>
-          <Text style={styles.title}>
-            {totalSets(active)} sets · {Math.round(toDisplayWeight(totalVolume(active), unit))}{" "}
-            {unit}
-          </Text>
-          <Text style={styles.startedAt}>Started {formatTimeOfDay(active.startedAt)}</Text>
-        </View>
-
         <ReorderableList
           data={active.exercises}
-          keyExtractor={(ex) => ex.id}
+          // react-native-reorderable-list calls keyExtractor with data[i] from its own
+          // captured data (markCells, before onReorder), so i can be past the end and
+          // the item undefined. It tolerates a falsy key by falling back to the index.
+          keyExtractor={(ex, i) => ex?.id ?? String(i)}
           onReorder={({ from, to }) => reorderExercises(from, to)}
           cellAnimations={REORDER_CELL_ANIMATIONS}
           shouldUpdateActiveItem
@@ -143,6 +188,19 @@ export default function WorkoutRoute() {
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
+          ListHeaderComponent={
+            <View style={styles.header}>
+              <View style={styles.clock}>
+                <Ionicons name="time-outline" size={14} color={theme.colors.accent} />
+                <Text style={styles.clockText}>{formatClock(elapsed)}</Text>
+              </View>
+              <Text style={styles.title}>
+                {totalSets(active)} sets · {Math.round(toDisplayWeight(totalVolume(active), unit))}{" "}
+                {unit}
+              </Text>
+              <Text style={styles.startedAt}>Started {formatTimeOfDay(active.startedAt)}</Text>
+            </View>
+          }
           renderItem={({ item: ex }: ReorderableListRenderItemInfo<WorkoutExercise>) => (
             <ExerciseCard
               exercise={ex}
@@ -162,37 +220,34 @@ export default function WorkoutRoute() {
             />
           )}
           ListFooterComponent={
-            <>
-              <Button
-                title="+ Add exercise"
-                variant="dashed"
-                onPress={() => selection.open("workout")}
-                style={styles.addExercise}
-              />
-
-              {active.exercises.length > 0 ? (
-                <Pressable
-                  onPress={() => draft.openNew(templateSeed(active))}
-                  hitSlop={6}
-                  style={styles.savePreset}
-                >
-                  <Text style={styles.savePresetText}>Save as template</Text>
-                </Pressable>
-              ) : null}
-            </>
+            <Button
+              title="+ Add exercise"
+              variant="dashed"
+              onPress={() => selection.open("workout")}
+              style={styles.addExercise}
+            />
           }
         />
 
-        <RestTimerBar timer={rest} />
-
-        <View style={styles.footer}>
-          <Button
-            title="Discard"
-            variant="danger"
-            onPress={confirmDiscard}
-            style={styles.discard}
-          />
-          <Button title="Finish" disabled={!hasLoggedSet} onPress={finish} style={styles.finish} />
+        <View
+          style={[
+            styles.footer,
+            { paddingBottom: keyboardOpen ? theme.space(3) : insets.bottom || theme.space(3) },
+          ]}
+        >
+          <View style={styles.restBarFill}>
+            <RestTimerBar timer={rest} />
+          </View>
+          {keyboardOpen ? (
+            <GlassPressable
+              onPress={Keyboard.dismiss}
+              surfaceStyle={styles.dismissKeyboard}
+              fallbackStyle={styles.dismissKeyboardSolid}
+              accessibilityLabel="Close keyboard"
+            >
+              <Ionicons name="chevron-down" size={18} color={theme.colors.text} />
+            </GlassPressable>
+          ) : null}
         </View>
       </KeyboardAvoidingView>
     </View>
@@ -418,9 +473,7 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
-    paddingHorizontal: theme.space(6),
-    paddingTop: theme.space(4),
+    backgroundColor: theme.colors.surface,
   },
   header: {
     marginBottom: theme.space(4),
@@ -450,8 +503,11 @@ const styles = StyleSheet.create({
   },
   scroll: {
     flex: 1,
+    backgroundColor: theme.colors.background,
   },
   scrollContent: {
+    paddingHorizontal: theme.space(6),
+    paddingTop: theme.space(4),
     paddingBottom: theme.space(6),
   },
   card: {
@@ -611,25 +667,29 @@ const styles = StyleSheet.create({
   addExercise: {
     marginTop: theme.space(1),
   },
-  savePreset: {
-    alignItems: "center",
-    paddingVertical: theme.space(3),
-    marginTop: theme.space(2),
-  },
-  savePresetText: {
-    color: theme.colors.textMuted,
-    fontSize: 14,
-    fontWeight: "600",
-  },
   footer: {
     flexDirection: "row",
-    gap: theme.space(3),
-    paddingVertical: theme.space(4),
+    alignItems: "center",
+    gap: theme.space(2),
+    paddingHorizontal: theme.space(6),
+    paddingTop: theme.space(3),
+    backgroundColor: theme.colors.surface,
+    borderTopColor: theme.colors.border,
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
-  discard: {
+  restBarFill: {
     flex: 1,
   },
-  finish: {
-    flex: 2,
+  dismissKeyboard: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: theme.radius.sm,
+    borderColor: theme.colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  dismissKeyboardSolid: {
+    backgroundColor: theme.colors.background,
   },
 });
