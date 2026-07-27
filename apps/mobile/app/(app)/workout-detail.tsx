@@ -68,7 +68,7 @@ export default function WorkoutDetailRoute() {
               <View key={s.id} style={styles.setRow}>
                 <Text style={styles.setIndex}>{i + 1}</Text>
                 <Text style={styles.setText}>
-                  {s.reps} reps × {toDisplayWeight(s.weight, unit)} {unit}
+                  {toDisplayWeight(s.weight, unit)} {unit} × {s.reps} reps
                 </Text>
               </View>
             ))}

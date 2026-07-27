@@ -123,7 +123,7 @@ function HistoryRow({ point, unit }: { point: ProgressPoint; unit: WeightUnit })
     <View style={styles.historyRow}>
       <Text style={styles.historyDate}>{fmtShort(point.date)}</Text>
       <Text style={styles.historyMeta}>
-        {point.topReps} × {toDisplayWeight(point.topWeight, unit)} {unit} · {point.sets} sets ·{" "}
+        {toDisplayWeight(point.topWeight, unit)} {unit} × {point.topReps} · {point.sets} sets ·{" "}
         {Math.round(toDisplayWeight(point.volume, unit))} {unit} vol
       </Text>
     </View>

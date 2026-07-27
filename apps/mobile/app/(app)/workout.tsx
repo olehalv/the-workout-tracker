@@ -91,7 +91,9 @@ export default function WorkoutRoute() {
 
   if (!active) return <Redirect href={summary ? "/summary" : "/"} />;
 
-  const hasLoggedSet = active.exercises.some((e) => e.sets.some((s) => s.reps > 0));
+  const everySetLogged =
+    active.exercises.length > 0 &&
+    active.exercises.every((e) => e.sets.length > 0 && e.sets.every((s) => s.reps > 0));
 
   const confirmDiscard = () => {
     Alert.alert("Discard workout?", "This workout and its logged sets will be deleted.", [
@@ -155,7 +157,7 @@ export default function WorkoutRoute() {
               type: "button",
               label: "Finish",
               variant: "done",
-              disabled: !hasLoggedSet,
+              disabled: !everySetLogged,
               onPress: finish,
             },
             {
@@ -283,7 +285,7 @@ function ExerciseCard({
   const [noteOpen, setNoteOpen] = useState(() => exercise.note.length > 0);
   const previousLabel = useMemo(() => {
     if (!previous) return "No previous record";
-    return `Previous: ${previous.topReps} × ${toDisplayWeight(previous.topWeight, unit)} ${unit}`;
+    return `Previous: ${toDisplayWeight(previous.topWeight, unit)} ${unit} × ${previous.topReps}`;
   }, [previous, unit]);
 
   return (
@@ -316,8 +318,8 @@ function ExerciseCard({
       {exercise.sets.length > 0 ? (
         <View style={styles.columns}>
           <Text style={[styles.colHeader, styles.colSet]}>Set</Text>
-          <Text style={[styles.colHeader, styles.colField]}>Reps</Text>
           <Text style={[styles.colHeader, styles.colField]}>{unit}</Text>
+          <Text style={[styles.colHeader, styles.colField]}>Reps</Text>
           <View style={styles.colRemove} />
         </View>
       ) : (
@@ -426,21 +428,6 @@ function SetRow({
     <View style={styles.setRow}>
       <Text style={[styles.setIndex, styles.colSet]}>{index}</Text>
       <View style={[styles.stepper, styles.colField]}>
-        <StepButton label="−" onPress={() => stepReps(-1)} />
-        <TextInput
-          style={styles.stepperInput}
-          placeholder={repsPlaceholder}
-          placeholderTextColor={theme.colors.textMuted}
-          keyboardType="number-pad"
-          value={reps}
-          onChangeText={(t) => {
-            setReps(t);
-            onChange({ reps: toReps(t) });
-          }}
-        />
-        <StepButton label="+" onPress={() => stepReps(1)} />
-      </View>
-      <View style={[styles.stepper, styles.colField]}>
         <StepButton label="−" onPress={() => stepWeight(-1)} />
         <TextInput
           style={styles.stepperInput}
@@ -454,6 +441,21 @@ function SetRow({
           }}
         />
         <StepButton label="+" onPress={() => stepWeight(1)} />
+      </View>
+      <View style={[styles.stepper, styles.colField]}>
+        <StepButton label="−" onPress={() => stepReps(-1)} />
+        <TextInput
+          style={styles.stepperInput}
+          placeholder={repsPlaceholder}
+          placeholderTextColor={theme.colors.textMuted}
+          keyboardType="number-pad"
+          value={reps}
+          onChangeText={(t) => {
+            setReps(t);
+            onChange({ reps: toReps(t) });
+          }}
+        />
+        <StepButton label="+" onPress={() => stepReps(1)} />
       </View>
       <Pressable style={styles.colRemove} onPress={onRemove} hitSlop={6}>
         <Text style={styles.removeX}>×</Text>
